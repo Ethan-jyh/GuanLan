@@ -509,19 +509,20 @@ class DeepSearchAgent:
             logger.exception(f"    ❌ 情感分析过程中发生错误: {str(e)}")
             return {"success": False, "error": str(e), "results": []}
 
-    def research(self, query: str, save_report: bool = True) -> str:
+    def research(self, query: str, save_report: bool = True, task_id: Optional[str] = None) -> str:
         """
         执行深度研究
 
         Args:
             query: 研究查询
             save_report: 是否保存报告到文件
+            task_id: 协作任务ID（若提供，则在段落研究后接入论坛阶段评审同步屏障）
 
         Returns:
             最终报告内容
         """
         logger.info(f"\n{'=' * 60}")
-        logger.info(f"开始深度研究: {query}")
+        logger.info(f"开始深度研究: {query} (协作任务ID: {task_id or '单机运行'})")
         logger.info(f"{'=' * 60}")
 
         try:
@@ -531,12 +532,25 @@ class DeepSearchAgent:
             # Step 2: 处理每个段落
             self._process_paragraphs()
 
+            # Step 2.5: 阶段评审检查点与协作闭环（若处于协作任务中）
+            if task_id:
+                from ForumEngine.adapter import ForumAgentAdapter
+                logger.info(f"\n[步骤 2.5] 进入论坛 HOST 阶段评审流程 (Task: {task_id})...")
+                ForumAgentAdapter.collaborate_and_review(
+                    agent_instance=self,
+                    task_id=task_id,
+                    agent_id="insight"
+                )
+
             # Step 3: 生成最终报告
             final_report = self._generate_final_report()
 
-            # Step 4: 保存报告
+            # Step 4: 保存报告并登记
             if save_report:
-                self._save_report(final_report)
+                report_path = self._save_report(final_report)
+                if task_id and report_path:
+                    from ForumEngine.client import ForumReviewClient
+                    ForumReviewClient().register_final_report(task_id, "insight", report_path)
 
             logger.info("深度研究完成！")
 
@@ -949,6 +963,8 @@ class DeepSearchAgent:
             state_filepath = os.path.join(self.config.OUTPUT_DIR, state_filename)
             self.state.save_to_file(state_filepath)
             logger.info(f"状态已保存到: {state_filepath}")
+
+        return filepath
 
     def get_progress_summary(self) -> Dict[str, Any]:
         """获取进度摘要"""

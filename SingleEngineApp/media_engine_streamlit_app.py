@@ -35,15 +35,14 @@ from utils.github_issues import error_with_issue_link
 def main():
     """主函数"""
     st.set_page_config(
-        page_title="Media Agent",
-        page_icon="",
+        page_title="舆情分析员 (Sentiment Analyst)",
+        page_icon="📱",
         layout="wide"
     )
 
-    st.title("Media Agent")
-    st.markdown("具备强大多模态能力的AI代理")
-    st.markdown("突破传统文本交流限制，广泛的浏览抖音、快手、小红书的视频、图文、直播")
-    st.markdown("使用现代化搜索引擎提供的诸如日历卡、天气卡、股票卡等多模态结构化信息进一步增强能力")
+    st.title("舆情分析员 (Sentiment Analyst)")
+    st.markdown("**智库职能**：专注社媒多模态与大众情绪声量分析的专家智能体")
+    st.markdown("突破传统文本限制，广泛监测主流社媒图文与短视频，解析大众情绪与结构化信息")
 
     # 检查URL参数
     try:
@@ -51,11 +50,13 @@ def main():
         query_params = st.query_params
         auto_query = query_params.get('query', '')
         auto_search = query_params.get('auto_search', 'false').lower() == 'true'
+        task_id = query_params.get('task_id', '')
     except AttributeError:
         # 兼容旧版本
         query_params = st.experimental_get_query_params()
         auto_query = query_params.get('query', [''])[0]
         auto_search = query_params.get('auto_search', ['false'])[0].lower() == 'true'
+        task_id = query_params.get('task_id', [''])[0]
 
     # ----- 配置被硬编码 -----
     # 强制使用 Gemini
@@ -146,10 +147,10 @@ def main():
             return
 
         # 执行研究
-        execute_research(query, config)
+        execute_research(query, config, task_id=task_id if task_id else None)
 
 
-def execute_research(query: str, config: Settings):
+def execute_research(query: str, config: Settings, task_id: str | None = None):
     """执行研究"""
     try:
         # 创建进度条
@@ -180,15 +181,27 @@ def execute_research(query: str, config: Settings):
 
             # 初始搜索和总结
             agent._initial_search_and_summary(i)
-            progress_value = 20 + (i + 0.5) / total_paragraphs * 60
+            progress_value = 20 + (i + 0.5) / total_paragraphs * 50
             progress_bar.progress(int(progress_value))
 
             # 反思循环
             agent._reflection_loop(i)
             agent.state.paragraphs[i].research.mark_completed()
 
-            progress_value = 20 + (i + 1) / total_paragraphs * 60
+            progress_value = 20 + (i + 1) / total_paragraphs * 50
             progress_bar.progress(int(progress_value))
+
+        # 阶段评审检查点与协作闭环（若处于协作任务中）
+        if task_id:
+            status_text.text("段落调研完成，正在接入论坛 HOST 阶段评审...")
+            progress_bar.progress(75)
+            from ForumEngine.adapter import ForumAgentAdapter
+            ForumAgentAdapter.collaborate_and_review(
+                agent_instance=agent,
+                task_id=task_id,
+                agent_id="media",
+                status_callback=lambda msg: status_text.text(msg)
+            )
 
         # 生成最终报告
         status_text.text("正在生成最终报告...")
@@ -199,7 +212,10 @@ def execute_research(query: str, config: Settings):
         # 保存报告
         status_text.text("正在保存报告...")
         logger.info("正在保存报告...")
-        agent._save_report(final_report)
+        report_path = agent._save_report(final_report)
+        if task_id and report_path:
+            from ForumEngine.client import ForumReviewClient
+            ForumReviewClient().register_final_report(task_id, "media", report_path)
         progress_bar.progress(100)
 
         status_text.text("研究完成！")

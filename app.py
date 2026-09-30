@@ -76,6 +76,14 @@ if REPORT_ENGINE_AVAILABLE:
 else:
     logger.info("ReportEngine不可用，跳过接口注册")
 
+# 注册ForumReview Blueprint（阶段评审架构）
+try:
+    from ForumEngine.flask_routes import forum_review_bp
+    app.register_blueprint(forum_review_bp, url_prefix='/api/forum')
+    logger.info("ForumReview 阶段评审接口已注册 (/api/forum/tasks)")
+except Exception as e:
+    logger.error(f"ForumReview 接口注册失败: {e}")
+
 # 创建日志目录
 LOG_DIR = Path('logs')
 LOG_DIR.mkdir(exist_ok=True)
@@ -1152,21 +1160,28 @@ def get_forum_log_history():
 @app.route('/api/search', methods=['POST'])
 def search():
     """统一搜索接口"""
-    data = request.get_json()
+    data = request.get_json() or {}
     query = data.get('query', '').strip()
     
     if not query:
         return jsonify({'success': False, 'message': '搜索查询不能为空'})
     
-    # ForumEngine论坛已经在后台运行，会自动检测搜索活动
-    # logger.info("ForumEngine: 搜索请求已收到，论坛将自动检测日志变化")
+    # 阶段评审协作模式：创建或获取协作任务ID
+    task_id = data.get('task_id')
+    if not task_id:
+        try:
+            from ForumEngine.coordinator import get_coordinator
+            task = get_coordinator().create_task(query)
+            task_id = task.task_id
+        except Exception as e:
+            logger.warning(f"创建论坛协作任务失败: {e}")
     
     # 检查哪些应用正在运行
     check_app_status()
     running_apps = [name for name, info in processes.items() if info['status'] == 'running']
     
     if not running_apps:
-        return jsonify({'success': False, 'message': '没有运行中的应用'})
+        return jsonify({'success': False, 'message': '没有运行中的应用', 'task_id': task_id})
     
     # 向运行中的应用发送搜索请求
     results = {}
@@ -1180,7 +1195,7 @@ def search():
             # 调用Streamlit应用的API端点
             response = requests.post(
                 f"http://localhost:{api_port}/api/search",
-                json={'query': query},
+                json={'query': query, 'task_id': task_id},
                 timeout=10
             )
             if response.status_code == 200:
@@ -1190,12 +1205,10 @@ def search():
         except Exception as e:
             results[app_name] = {'success': False, 'message': str(e)}
     
-    # 搜索完成后可以选择停止监控，或者让它继续运行以捕获后续的处理日志
-    # 这里我们让监控继续运行，用户可以通过其他接口手动停止
-    
     return jsonify({
         'success': True,
         'query': query,
+        'task_id': task_id,
         'results': results
     })
 

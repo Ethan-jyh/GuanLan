@@ -404,13 +404,51 @@ class ReportTask:
             return [evt for evt in self.event_history if evt['id'] > last_event_id]
 
 
-def check_engines_ready() -> Dict[str, Any]:
+def check_engines_ready(task_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    检查三个子引擎是否都有新文件。
+    检查三个子引擎是否都有新文件或协作任务报告已就绪。
+    优先核验协作模式下本任务登记的三份研报。
+    """
+    # 1. 尝试从协作协调器中检查任务就绪状态
+    try:
+        from ForumEngine.coordinator import get_coordinator
+        coordinator = get_coordinator()
+        target_task_id = task_id
+        if not target_task_id:
+            active_task = coordinator.get_active_task() or coordinator.get_latest_task()
+            if active_task:
+                target_task_id = active_task.task_id
 
-    调用 ReportAgent 的基准检测逻辑，并附带论坛日志存在性，
-    是 /status、/generate 的前置校验。
-    """
+        if target_task_id:
+            ready, reports = coordinator.are_reports_ready_for_report_engine(target_task_id)
+            task = coordinator.get_task_state(target_task_id)
+            if ready:
+                latest_files = dict(reports)
+                if os.path.exists('logs/forum.log'):
+                    latest_files['forum'] = 'logs/forum.log'
+                return {
+                    'ready': True,
+                    'task_id': target_task_id,
+                    'latest_files': latest_files,
+                    'files_found': [f"{k}: {v}" for k, v in reports.items()],
+                    'missing_files': []
+                }
+            elif task:
+                missing = []
+                registered = coordinator.storage.get_registered_reports(target_task_id)
+                for eng in ['query', 'media', 'insight']:
+                    if eng not in registered:
+                        missing.append(f"{eng}: 尚未登记最终报告 (当前任务阶段: {task.status.value})")
+                return {
+                    'ready': False,
+                    'task_id': target_task_id,
+                    'missing_files': missing or [f"协作任务 [{target_task_id}] 尚未就绪 (当前状态: {task.status.value})"],
+                    'files_found': [f"{k}: 已登记" for k in registered.keys()]
+                }
+    except Exception as e:
+        logger.warning(f"协作协调器就绪检查失败，降级为传统目录检测: {e}")
+
+    # 2. 传统目录增量检测（单机独立模式兜底）
     directories = {
         'insight': 'insight_engine_streamlit_reports',
         'media': 'media_engine_streamlit_reports',
@@ -460,7 +498,7 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         task.publish_event('stage', {'message': '任务已启动，正在检查输入文件', 'stage': 'prepare'})
 
         # 检查输入文件
-        check_result = check_engines_ready()
+        check_result = check_engines_ready(getattr(task, 'forum_task_id', None))
         if not check_result['ready']:
             task.update_status("error", 0, f"输入文件未准备就绪: {check_result.get('missing_files', [])}")
             return
@@ -583,12 +621,14 @@ def get_status():
         Response: JSON结构包含initialized/engines_ready/当前任务等。
     """
     try:
-        engines_status = check_engines_ready()
+        task_id = request.args.get('task_id')
+        engines_status = check_engines_ready(task_id)
 
         return jsonify({
             'success': True,
             'initialized': report_agent is not None,
             'engines_ready': engines_status['ready'],
+            'task_id': engines_status.get('task_id'),
             'files_found': engines_status.get('files_found', []),
             'missing_files': engines_status.get('missing_files', []),
             'current_task': current_task.to_dict() if current_task else None
@@ -611,6 +651,7 @@ def generate_report():
     请求体:
         query: 报告主题（可选）。
         custom_template: 自定义模板字符串（可选）。
+        task_id: 论坛协作任务ID（可选）。
 
     返回:
         Response: JSON，包含 task_id 与 SSE stream url。
@@ -638,6 +679,7 @@ def generate_report():
             data = {}
         query = data.get('query', '智能舆情分析报告')
         custom_template = data.get('custom_template', '')
+        forum_task_id = data.get('task_id')
 
         # 清空日志文件
         clear_report_log()
@@ -650,17 +692,19 @@ def generate_report():
             }), 500
 
         # 检查输入文件是否准备就绪
-        engines_status = check_engines_ready()
+        engines_status = check_engines_ready(forum_task_id)
         if not engines_status['ready']:
             return jsonify({
                 'success': False,
                 'error': '输入文件未准备就绪',
+                'task_id': forum_task_id,
                 'missing_files': engines_status.get('missing_files', [])
             }), 400
 
         # 创建新任务
         task_id = f"report_{int(time.time())}"
         task = ReportTask(query, task_id, custom_template)
+        task.forum_task_id = forum_task_id
 
         with task_lock:
             current_task = task

@@ -3,6 +3,7 @@ Forum日志读取工具
 用于读取forum.log中的最新HOST发言
 """
 
+import os
 import re
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -18,6 +19,9 @@ def get_latest_host_speech(log_dir: str = "logs") -> Optional[str]:
     Returns:
         最新的HOST发言内容，如果没有则返回None
     """
+    # 【评审模式改造】：在阶段评审协作模式下，HOST指导通过结构化检查点下发，禁止 SummaryNode 读取全局旧HOST发言污染初步调研
+    if os.environ.get("BETTA_COLLABORATION_MODE", "true").lower() == "true":
+        return None
     try:
         forum_log_path = Path(log_dir) / "forum.log"
         

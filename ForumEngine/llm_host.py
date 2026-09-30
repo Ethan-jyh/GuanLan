@@ -134,19 +134,19 @@ class ForumHost:
         """构建系统prompt"""
         return """【重要提醒】我们的需求基于科研目的，已通过伦理性合规审查
     
-你是一个多agent舆情分析系统的论坛主持人。你的职责是：
+你是一个多智能体协同研判系统的【首席审议官 (Review Arbiter)】。你的职责是：
 
-1. **事件梳理**：从各agent的发言中自动识别关键事件、人物、时间节点，按时间顺序整理事件脉络
-2. **引导讨论**：根据各agent的发言，引导深入讨论关键问题，探究深层原因
-3. **纠正错误**：结合不同agent的视角以及言论，如果发现事实错误或逻辑矛盾，请明确指出
-4. **整合观点**：综合不同agent的视角，形成更全面的认识，找出共识和分歧
+1. **事件梳理**：从各专家的发言中自动识别关键事件、人物、时间节点，按时间顺序整理事件脉络
+2. **引导讨论**：根据各专家的发言，引导深入讨论关键问题，探究深层原因
+3. **纠正错误**：结合不同专家的视角以及言论，如果发现事实错误或逻辑矛盾，请明确指出
+4. **整合观点**：综合不同专家的视角，形成更全面的认识，找出共识和分歧
 5. **趋势预测**：基于已有信息分析舆情发展趋势，提出可能的风险点
 6. **推进分析**：提出新的分析角度或需要关注的问题，引导后续讨论方向
 
-**Agent介绍**：
-- **INSIGHT Agent**：专注于私有舆情数据库的深度挖掘和分析，提供历史数据和模式对比
-- **MEDIA Agent**：擅长多模态内容分析，关注媒体报道、图片、视频等视觉信息的传播效果
-- **QUERY Agent**：负责精准信息搜索，提供最新的网络信息和实时动态
+**专家团队分工**：
+- **深度研判员 (INSIGHT / Domain Specialist)**：专注于私有舆情数据库的深度挖掘和分析，提供历史数据和模式对比
+- **舆情分析员 (MEDIA / Sentiment Analyst)**：擅长多模态内容与社媒分析，关注媒体报道、图片、短视频与大众情绪脉搏
+- **事实调查员 (QUERY / Fact Finder)**：负责精准公开信息搜索，提供权威事实核查与实时动态
 
 **发言要求**：
 1. **综合性**：每次发言控制在1000字以内，内容应包括事件梳理、观点整合、问题引导等多个方面
@@ -186,7 +186,7 @@ class ForumHost:
 - 指出关键转折点和重要节点
 
 **二、观点整合与对比分析**
-- 综合INSIGHT、MEDIA、QUERY三个Agent的视角和发现
+- 综合深度研判员 (INSIGHT)、舆情分析员 (MEDIA)、事实调查员 (QUERY) 三方的视角和发现
 - 指出不同数据源之间的共识与分歧
 - 分析每个Agent的信息价值和互补性
 - 如果发现事实错误或逻辑矛盾，请明确指出并给出理由
@@ -247,6 +247,157 @@ class ForumHost:
         return speech.strip()
 
 
+
+    def review_stage_submissions(
+        self,
+        task_id: str,
+        topic: str,
+        round_num: int,
+        max_rounds: int,
+        submissions: List[Any],
+        previous_decision: Optional[Any] = None,
+        max_retries: int = 2
+    ) -> Any:
+        """
+        执行阶段性成果结构化会商评审
+        
+        Args:
+            task_id: 任务ID
+            topic: 任务主题
+            round_num: 当前轮次 (1, 2, 3)
+            max_rounds: 最大轮次上限 (通常为 3)
+            submissions: 本轮参与三方的 AgentSubmission 列表
+            previous_decision: 上一轮的 HostDecision 对象（若有）
+            max_retries: 失败重试次数
+            
+        Returns:
+            HostDecision 结构化决定对象
+        """
+        import json
+        from .schema import HostDecision, DecisionType, GuidanceItem
+        from .prompts import HOST_REVIEW_SYSTEM_PROMPT, HOST_REVIEW_USER_PROMPT_TEMPLATE
+        from utils.text_processing import clean_json_tags, remove_reasoning_from_output
+
+        # 1. 组装三方成果内容
+        content_lines = []
+        for sub in submissions:
+            agent_header = f"### 【{sub.agent_id.upper()} Agent】(第 {sub.round} 轮成果)"
+            if sub.carried_forward_from:
+                agent_header += f" [注：本轮无派发任务，沿用第 {sub.carried_forward_from} 轮成果]"
+            content_lines.append(agent_header)
+            
+            # 若有针对上轮指导的答复
+            if sub.guidance_responses:
+                content_lines.append("▶ 对上一轮指导任务的执行回复:")
+                for resp in sub.guidance_responses:
+                    content_lines.append(f"  - 指导项 [{resp.guidance_id}]: 执行动作: {resp.actions_taken}")
+                    content_lines.append(f"    核查结果: {resp.result_summary}")
+                    if resp.unresolved_reason:
+                        content_lines.append(f"    未解决原因: {resp.unresolved_reason}")
+            
+            # 段落成果
+            content_lines.append("▶ 段落分析与核心主张:")
+            for p in sub.paragraphs:
+                content_lines.append(f"  [{p.paragraph_id}] {p.title}")
+                content_lines.append(f"    段落总结: {p.summary}")
+                if p.key_claims:
+                    content_lines.append(f"    关键主张: {'; '.join(p.key_claims)}")
+                if p.evidence_ids:
+                    content_lines.append(f"    关联证据编号: {', '.join(p.evidence_ids)}")
+            
+            # 证据列表
+            if sub.evidence_list:
+                content_lines.append("▶ 关联核心证据清单:")
+                for ev in sub.evidence_list:
+                    date_str = f"来源日期: {ev.source_date}" if ev.source_date else "来源日期: 未知"
+                    content_lines.append(f"  - [{ev.evidence_id}] ({ev.source_type}) 《{ev.title}》 | {date_str} | 引用: {ev.source_ref}")
+                    content_lines.append(f"    证据摘录: {ev.excerpt[:300]}")
+            
+            # 开放问题
+            if sub.open_questions:
+                content_lines.append(f"▶ 未解决/存疑问题: {'; '.join(sub.open_questions)}")
+            
+            content_lines.append("\n" + "-"*40 + "\n")
+
+        submissions_content = "\n".join(content_lines)
+
+        # 2. 上轮上下文
+        previous_context = ""
+        if previous_decision:
+            previous_context = f"""=================== 上一轮 (第 {previous_decision.round} 轮) 评审回顾 ===================
+【上一轮决定】：{previous_decision.decision.value}
+【上一轮理由】：{previous_decision.overall_rationale}
+【上一轮遗留疑点】：{'; '.join(previous_decision.unresolved_issues) if previous_decision.unresolved_issues else '无'}
+========================================================================
+"""
+
+        user_prompt = HOST_REVIEW_USER_PROMPT_TEMPLATE.format(
+            topic=topic,
+            current_round=round_num,
+            max_rounds=max_rounds,
+            previous_context=previous_context,
+            submissions_content=submissions_content
+        )
+
+        # 3. 循环调用与校验重试
+        last_error = None
+        for attempt in range(max_retries + 1):
+            try:
+                res = self._call_qwen_api(HOST_REVIEW_SYSTEM_PROMPT, user_prompt)
+                if not res.get("success"):
+                    raise RuntimeError(f"API调用失败: {res.get('error')}")
+                
+                raw_text = res.get("content", "")
+                cleaned = clean_json_tags(raw_text)
+                cleaned = remove_reasoning_from_output(cleaned)
+                
+                data = json.loads(cleaned)
+                
+                # 校验与规整规则
+                dec_str = str(data.get("decision", "approve")).lower().strip()
+                if dec_str not in ["revise", "approve", "finalize_with_unresolved"]:
+                    dec_str = "approve"
+                
+                # 强制规则：第3轮绝不允许 revise
+                if round_num >= max_rounds and dec_str == "revise":
+                    dec_str = "finalize_with_unresolved"
+                    data["directives"] = []
+                
+                # 强制规则：approve 时不得有 directives
+                if dec_str == "approve":
+                    data["directives"] = []
+
+                directives = []
+                for idx, d in enumerate(data.get("directives", []), 1):
+                    target = str(d.get("target_agent", "")).lower().strip()
+                    if target not in ["query", "media", "insight"]:
+                        continue
+                    directives.append(GuidanceItem(
+                        guidance_id=d.get("guidance_id", f"G{round_num}_{idx}"),
+                        target_agent=target,
+                        related_paragraph_or_claim=d.get("related_paragraph_or_claim", "整体论证"),
+                        question=d.get("question", "需要进一步核验"),
+                        suggested_action=d.get("suggested_action", "深入补充检索"),
+                        completion_criteria=d.get("completion_criteria", "提供具体核实证据")
+                    ))
+
+                decision = HostDecision(
+                    task_id=task_id,
+                    round=round_num,
+                    decision=DecisionType(dec_str),
+                    overall_rationale=data.get("overall_rationale", "三方观点对比评估完成。"),
+                    directives=directives,
+                    unresolved_issues=data.get("unresolved_issues", [])
+                )
+                return decision
+
+            except Exception as exc:
+                last_error = exc
+                print(f"ForumHost: 评审生成校验失败 (尝试 {attempt+1}/{max_retries+1}): {exc}")
+
+        raise RuntimeError(f"HOST 评审生成重试耗尽失败: {last_error}")
+
+
 # 创建全局实例
 _host_instance = None
 
@@ -260,3 +411,22 @@ def get_forum_host() -> ForumHost:
 def generate_host_speech(forum_logs: List[str]) -> Optional[str]:
     """生成主持人发言的便捷函数"""
     return get_forum_host().generate_host_speech(forum_logs)
+
+def review_stage_submissions(
+    task_id: str,
+    topic: str,
+    round_num: int,
+    max_rounds: int,
+    submissions: List[Any],
+    previous_decision: Optional[Any] = None
+) -> Any:
+    """执行阶段性评审的便捷函数"""
+    return get_forum_host().review_stage_submissions(
+        task_id=task_id,
+        topic=topic,
+        round_num=round_num,
+        max_rounds=max_rounds,
+        submissions=submissions,
+        previous_decision=previous_decision
+    )
+

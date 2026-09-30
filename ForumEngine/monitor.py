@@ -643,8 +643,10 @@ class LogMonitor:
                                 self.agent_speeches_buffer.append(log_line)
                                 
                                 # 检查是否需要触发主持人发言
-                                if len(self.agent_speeches_buffer) >= self.host_speech_threshold and not self.is_host_generating:
-                                    # 同步触发主持人发言
+                                # 【评审模式改造】：在阶段评审协作模式下（默认开启），HOST 由协调器到齐后统一评审，禁用基于条数的无序触发
+                                is_collab = os.environ.get("BETTA_COLLABORATION_MODE", "true").lower() == "true"
+                                if not is_collab and len(self.agent_speeches_buffer) >= self.host_speech_threshold and not self.is_host_generating:
+                                    # 仅在非协作的旧单机模式下同步触发主持人发言
                                     self._trigger_host_speech()
                    
                     elif current_lines < previous_lines:

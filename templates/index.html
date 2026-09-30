@@ -1546,23 +1546,23 @@
                 <div class="app-switcher">
                     <button class="app-button active" data-app="insight">
                         <span class="status-indicator" id="status-insight"></span>
-                        Insight Engine
+                        深度研判员 (Insight)
                     </button>
                     <button class="app-button" data-app="media">
                         <span class="status-indicator" id="status-media"></span>
-                        Media Engine
+                        舆情分析员 (Media)
                     </button>
                     <button class="app-button" data-app="query">
                         <span class="status-indicator" id="status-query"></span>
-                        Query Engine
+                        事实调查员 (Query)
                     </button>
                     <button class="app-button" data-app="forum">
                         <span class="status-indicator running" id="status-forum"></span>
-                        Forum Engine
+                        首席审议会商 (Arbiter)
                     </button>
-                    <button class="app-button locked" data-app="report" title="需等待其余三个Agent工作完毕">
+                    <button class="app-button locked" data-app="report" title="需等待三方专家与审议工作完毕">
                         <span class="status-indicator" id="status-report"></span>
-                        Report Engine
+                        研报主编 (Lead Editor)
                     </button>
                 </div>
 
@@ -2053,7 +2053,7 @@
                 ]
             },
             {
-                title: 'Insight Agent',
+                title: '深度研判员 (Domain Specialist)',
                 subtitle: 'OpenAi接入格式，推荐LLM：kimi-k2',
                 fields: [
                     { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key', type: 'password' },
@@ -2062,7 +2062,7 @@
                 ]
             },
             {
-                title: 'Media Agent',
+                title: '舆情分析员 (Sentiment Analyst)',
                 subtitle: 'OpenAi接入格式，推荐LLM：gemini-2.5-pro',
                 fields: [
                     { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key', type: 'password' },
@@ -2071,7 +2071,7 @@
                 ]
             },
             {
-                title: 'Query Agent',
+                title: '事实调查员 (Fact Finder)',
                 subtitle: 'OpenAi接入格式，推荐LLM：deepseek-chat',
                 fields: [
                     { key: 'QUERY_ENGINE_API_KEY', label: 'API Key', type: 'password' },
@@ -2080,7 +2080,7 @@
                 ]
             },
             {
-                title: 'Report Agent',
+                title: '研报主编 (Lead Editor)',
                 subtitle: 'OpenAi接入格式，推荐LLM：gemini-2.5-pro',
                 fields: [
                     { key: 'REPORT_ENGINE_API_KEY', label: 'API Key', type: 'password' },
@@ -2089,7 +2089,7 @@
                 ]
             },
             {
-                title: 'Forum Host',
+                title: '首席审议官 (Review Arbiter)',
                 subtitle: 'OpenAi接入格式，推荐LLM：qwen-plus',
                 fields: [
                     { key: 'FORUM_HOST_API_KEY', label: 'API Key', type: 'password' },
@@ -2125,20 +2125,20 @@
 
         // 应用名称映射
         const appNames = {
-            insight: 'Insight Engine',
-            media: 'Media Engine', 
-            query: 'Query Engine',
-            forum: 'Forum Engine',
-            report: 'Report Engine'
+            insight: '深度研判员 (Insight)',
+            media: '舆情分析员 (Media)', 
+            query: '事实调查员 (Query)',
+            forum: '首席审议会商 (Arbiter)',
+            report: '研报主编 (Lead Editor)'
         };
 
         // 页面头部显示的完整Agent介绍
         const agentTitles = {
-            insight: 'Insight Agent - 私有数据库挖掘',
-            media: 'Media Agent - 多模态内容分析', 
-            query: 'Query Agent - 精准信息搜索',
-            forum: 'Forum Engine - 多智能体交流',
-            report: 'Report Agent - 最终报告生成'
+            insight: '深度研判员 (Domain Specialist) - 垂直私域与深度文献挖掘',
+            media: '舆情分析员 (Sentiment Analyst) - 社媒多模态与大众情绪脉搏', 
+            query: '事实调查员 (Fact Finder) - 全网权威信源与公理事实核查',
+            forum: '首席审议官 (Review Arbiter) - 阶段性成果会商与任务指派',
+            report: '研报主编 (Lead Editor) - 综合多源证据出具最终决策研报'
         };
 
         // 初始化
@@ -3012,7 +3012,7 @@
         }
 
         // 执行搜索
-        function performSearch() {
+        async function performSearch() {
             const query = document.getElementById('searchInput').value.trim();
             if (!query) {
                 showMessage('请输入搜索内容', 'error');
@@ -3038,6 +3038,25 @@
             // 重置自动生成相关标志
             autoGenerateTriggered = false;
             reportTaskId = null;
+            window.currentForumTaskId = null;
+
+            // 阶段评审协作：创建或登记统一协作任务
+            let taskId = null;
+            try {
+                const taskResp = await fetch('/api/forum/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: query })
+                });
+                if (taskResp.ok) {
+                    const taskData = await taskResp.json();
+                    taskId = taskData.task_id;
+                    window.currentForumTaskId = taskId;
+                    console.log(`[Forum Review] 成功创建协作评审任务: ${taskId}`);
+                }
+            } catch (err) {
+                console.warn('[Forum Review] 创建协作任务网络异常:', err);
+            }
 
             // 停止可能正在进行的轮询
             stopProgressPolling();
@@ -3057,8 +3076,11 @@
                     }
 
                     if (iframe) {
-                        // 构建搜索URL
-                        const searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
+                        // 构建搜索URL（带上统一协作 task_id）
+                        let searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
+                        if (taskId) {
+                            searchUrl += `&task_id=${encodeURIComponent(taskId)}`;
+                        }
                         console.log(`向 ${app} 发送搜索请求: ${searchUrl}`);
 
                         // 检查iframe是否已经加载了相同的查询,避免不必要的重新加载
@@ -3646,7 +3668,7 @@ function getConsoleContainer() {
 
             // 如果是Report Engine，显示报告界面
             if (app === 'report') {
-                header.textContent = 'Report Agent - 最终报告生成';
+                header.textContent = agentTitles['report'] || '研报主编 (Lead Editor) - 综合多源证据出具最终决策研报';
 
                 // 隐藏所有iframe
                 Object.values(preloadedIframes).forEach(iframe => {
@@ -4446,7 +4468,8 @@ function getConsoleContainer() {
         let autoGenerateTriggered = false; // 防止重复触发
         
         function checkReportLockStatus() {
-            fetch('/api/report/status')
+            const statusUrl = window.currentForumTaskId ? `/api/report/status?task_id=${encodeURIComponent(window.currentForumTaskId)}` : '/api/report/status';
+            fetch(statusUrl)
             .then(response => response.json())
             .then(data => {
                 const reportButton = document.querySelector('[data-app="report"]');
@@ -4548,17 +4571,17 @@ function getConsoleContainer() {
                 
                 switch(source.toUpperCase()) {
                     case 'INSIGHT':
-                        displayName = 'Insight Engine';
+                        displayName = '深度研判员 (Domain Specialist)';
                         break;
                     case 'MEDIA':
-                        displayName = 'Media Engine';
+                        displayName = '舆情分析员 (Sentiment Analyst)';
                         break;
                     case 'QUERY':
-                        displayName = 'Query Engine';
+                        displayName = '事实调查员 (Fact Finder)';
                         break;
                     case 'HOST':
                         messageType = 'host';
-                        displayName = 'Forum Host';
+                        displayName = '首席审议官 (Review Arbiter)';
                         break;
                 }
                 
@@ -4569,6 +4592,7 @@ function getConsoleContainer() {
                 return {
                     type: messageType,
                     source: displayName,
+                    rawSource: source.toUpperCase(),
                     content: displayContent,
                     timestamp: timestamp
                 };
@@ -4590,20 +4614,15 @@ function getConsoleContainer() {
             messageDiv.className = `forum-message ${messageType}`;
             
             // 根据来源添加特定的CSS类用于颜色区分
-            if (data.source) {
-                const sourceClass = data.source.toLowerCase().replace(/\s+/g, '-');
-                messageDiv.classList.add(sourceClass);
-                
-                // 添加具体的engine类
-                if (data.source.toLowerCase().includes('query')) {
-                    messageDiv.classList.add('query-engine');
-                } else if (data.source.toLowerCase().includes('insight')) {
-                    messageDiv.classList.add('insight-engine');
-                } else if (data.source.toLowerCase().includes('media')) {
-                    messageDiv.classList.add('media-engine');
-                } else if (data.source.toLowerCase().includes('host')) {
-                    messageDiv.classList.add('host');
-                }
+            const rawSrc = (data.rawSource || '').toUpperCase();
+            if (rawSrc === 'QUERY' || (data.source && (data.source.toLowerCase().includes('query') || data.source.includes('事实调查员')))) {
+                messageDiv.classList.add('query-engine');
+            } else if (rawSrc === 'INSIGHT' || (data.source && (data.source.toLowerCase().includes('insight') || data.source.includes('深度研判员')))) {
+                messageDiv.classList.add('insight-engine');
+            } else if (rawSrc === 'MEDIA' || (data.source && (data.source.toLowerCase().includes('media') || data.source.includes('舆情分析员')))) {
+                messageDiv.classList.add('media-engine');
+            } else if (rawSrc === 'HOST' || (data.source && (data.source.toLowerCase().includes('host') || data.source.includes('首席审议官')))) {
+                messageDiv.classList.add('host');
             }
             
             // 构建消息头部，显示来源名称
@@ -5178,6 +5197,9 @@ function getConsoleContainer() {
             
             // 构建请求数据，包含自定义模板（如果有的话）
             const requestData = { query: query };
+            if (window.currentForumTaskId) {
+                requestData.task_id = window.currentForumTaskId;
+            }
             if (customTemplate && customTemplate.trim()) {
                 requestData.custom_template = customTemplate;
                 console.log('使用自定义模板生成报告');
