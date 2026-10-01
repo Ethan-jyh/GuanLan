@@ -757,8 +757,8 @@ class DeepSearchAgent:
 
 ### 获取帮助与反馈
 
-- **项目主页**：[GitHub 仓库 (jyhkkk/GuanLan-)](https://github.com/jyhkkk/GuanLan-)
-- **问题反馈**：[Issues 页面](https://github.com/jyhkkk/GuanLan-/issues)
+- **项目主页**：[GitHub 仓库 (jyhkkk/GuanLan)](https://github.com/jyhkkk/GuanLan)
+- **问题反馈**：[Issues 页面](https://github.com/jyhkkk/GuanLan/issues)
 - **技术文档**：[Node 运行时文档](./docs/guides/node-runtime.md) | [基准评测报告](./docs/benchmarks/node-migration-acceptance.md)
 
 ### 联系方式
