@@ -1,4 +1,23 @@
 import http from 'node:http';
+import { URL } from 'node:url';
+
+import { createDatabase, ResearchDatabase } from './storage/database.js';
+import {
+  RunRepository,
+  TaskRepository,
+  SubmissionRepository,
+  ReviewRepository,
+} from './storage/repositories.js';
+import { EvidenceStore } from './storage/evidence-store.js';
+import { EventStore } from './storage/event-store.js';
+import { BudgetLedger } from './storage/budget-ledger.js';
+import { SubmissionManager } from './orchestration/submissions.js';
+import { ResearchCoordinator } from './orchestration/coordinator.js';
+import { RecoveryManager } from './orchestration/recovery.js';
+import { ReviewManager } from './orchestration/review.js';
+import { SseManager } from './api/sse.js';
+import { ResearchApiRouter } from './api/routes.js';
+
 import { ResearchRole } from './contracts/research.js';
 import { createResearcherAgent } from './agents/researcher.js';
 import { AUTHORITY_SYSTEM_PROMPT } from './prompts/authority.js';
@@ -8,24 +27,56 @@ import { createScriptedStreamFn } from './runtime/pi-adapter.js';
 
 export interface RuntimeServerOptions {
   port?: number;
+  dbPath?: string;
   pythonBaseUrl?: string;
   internalToken?: string;
 }
 
 export function createRuntimeServer(options: RuntimeServerOptions = {}) {
   const port = options.port ?? 4000;
+  const dbPath = options.dbPath ?? ':memory:';
   const pythonBaseUrl = options.pythonBaseUrl ?? 'http://127.0.0.1:5000';
   const token = options.internalToken ?? 'bettafish-internal-secret';
 
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  // Initialize SQLite persistence & domain layer
+  const db = createDatabase(dbPath);
+  const runRepo = new RunRepository(db);
+  const taskRepo = new TaskRepository(db);
+  const subRepo = new SubmissionRepository(db);
+  const reviewRepo = new ReviewRepository(db);
+  const evidenceStore = new EvidenceStore(db);
+  const eventStore = new EventStore(db);
+  const budgetLedger = new BudgetLedger(db);
 
-    if (req.method === 'GET' && url.pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', service: 'bettafish-agent-runtime' }));
+  const submissionMgr = new SubmissionManager(subRepo, taskRepo, evidenceStore);
+  const coordinator = new ResearchCoordinator(runRepo, taskRepo, submissionMgr, eventStore);
+  const recoveryMgr = new RecoveryManager(runRepo);
+  const reviewMgr = new ReviewManager(runRepo, taskRepo, reviewRepo, submissionMgr);
+  const sseManager = new SseManager(eventStore);
+
+  const apiRouter = new ResearchApiRouter({
+    coordinator,
+    recoveryMgr,
+    reviewMgr,
+    budgetLedger,
+    eventStore,
+    sseManager,
+  });
+
+  const server = http.createServer(async (req, res) => {
+    // 1. Try Research API & Dashboard routes
+    try {
+      const handled = await apiRouter.handleRequest(req, res);
+      if (handled) return;
+    } catch (err: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
       return;
     }
 
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+    // 2. Backward compatibility: /api/runtime/execute-task
     if (req.method === 'POST' && url.pathname === '/api/runtime/execute-task') {
       let bodyStr = '';
       req.on('data', (chunk) => {
@@ -48,7 +99,6 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
             internalToken: token,
           });
 
-          // 封装调用 Python 的搜索和正文读取工具
           const searchTool = {
             name: 'search_web',
             description: 'Search official web',
@@ -75,7 +125,6 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
             },
           };
 
-          // 提交工具
           let lastSubmissionResult: any = null;
           const submitTool = createSubmitFindingsTool(async (findings) => {
             const resp = await fetch(`${pythonBaseUrl}/api/research/internal/submissions`, {
@@ -98,9 +147,7 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
             return { ok: false, error: data.error || 'Submission failed' };
           });
 
-          // 默认根据角色配置系统提示词
           let systemPrompt = AUTHORITY_SYSTEM_PROMPT;
-          // 若传入 scriptedSteps 则使用 scriptedStreamFn，否则回退
           const streamFn = createScriptedStreamFn(scriptedSteps || [{ text: 'No actions' }]);
 
           const agent = createResearcherAgent({
@@ -142,6 +189,7 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
       }),
     close: () =>
       new Promise<void>((resolve, reject) => {
+        sseManager.close();
         server.close((err) => (err ? reject(err) : resolve()));
       }),
   };
