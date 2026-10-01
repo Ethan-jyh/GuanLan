@@ -112,6 +112,16 @@ LLM模型API赞助：<a href="https://inferera.com/?aff=8Ds9" target="_blank"><i
 
 ```
 BettaFish/
+├── agent-runtime/                          # 🚀 纯 TypeScript / Node.js 多智能体协同研判独立运行时
+│   ├── src/contracts/                      # 统一领域契约 (Zod schema 运行时校验)
+│   ├── src/storage/                        # 原生 SQLite 数据层、证据池、事件流与预算账本
+│   ├── src/orchestration/                  # 任务规划、并发调度、成果提交、会商评审与恢复管理
+│   ├── src/tools/                          # 本地研究工具集 (联网搜索、正文抓取、社媒参数化查询、时间序列)
+│   ├── src/agents/                         # Pi Agent 核心 (HostAgent, ResearcherAgent, ReportAgent, Verifier)
+│   ├── src/reporting/                      # 专报研判综合、终稿质量门禁、IR 校验与多格式导出 (MD/HTML/DOCX/PDF)
+│   ├── src/api/                            # RESTful HTTP API、SSE 实时流与 Web 仪表盘
+│   └── tests/                              # 91 项自动化单元测试与端到端核心基准案例
+│
 ├── QueryEngine/                            # 国内外新闻广度搜索Agent
 │   ├── agent.py                            # Agent主逻辑，协调搜索与分析流程
 │   ├── llms/                               # LLM接口封装
