@@ -1,0 +1,1019 @@
+{
+  "$defs": {
+    "Artifact": {
+      "description": "专报最终交付成果物",
+      "properties": {
+        "artifact_id": {
+          "description": "成果物ID",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "所属运行ID",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "version": {
+          "default": 1,
+          "description": "成稿版本号",
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "research_versions": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "引用的各角色成果版本",
+          "title": "Research Versions",
+          "type": "object"
+        },
+        "judgment_version": {
+          "default": 1,
+          "description": "研判版本",
+          "title": "Judgment Version",
+          "type": "integer"
+        },
+        "final_check_passed": {
+          "default": false,
+          "description": "终稿质量合规检查是否通过",
+          "title": "Final Check Passed",
+          "type": "boolean"
+        },
+        "ir_content": {
+          "additionalProperties": true,
+          "description": "Document IR 结构化表达",
+          "title": "Ir Content",
+          "type": "object"
+        },
+        "output_file_paths": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "各渲染格式输出文件路径",
+          "title": "Output File Paths",
+          "type": "object"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "run_id"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "AuthorityFinding": {
+      "description": "权威口径角色专属成果",
+      "properties": {
+        "entity_name": {
+          "description": "表态主体机构名称",
+          "title": "Entity Name",
+          "type": "string"
+        },
+        "source_type": {
+          "description": "官方发布源类别",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "published_at": {
+          "description": "发布时间",
+          "title": "Published At",
+          "type": "string"
+        },
+        "raw_text": {
+          "description": "表态通报原文或核心引语",
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "stance_evolution": {
+          "description": "相较既往口径的演化与态度定调",
+          "title": "Stance Evolution",
+          "type": "string"
+        },
+        "covered_issues": {
+          "description": "通报中正面回应的问题清单",
+          "items": {
+            "type": "string"
+          },
+          "title": "Covered Issues",
+          "type": "array"
+        },
+        "unaddressed_issues": {
+          "description": "公众关切但尚未回应的事项",
+          "items": {
+            "type": "string"
+          },
+          "title": "Unaddressed Issues",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_name",
+        "source_type",
+        "published_at",
+        "raw_text",
+        "stance_evolution"
+      ],
+      "title": "AuthorityFinding",
+      "type": "object"
+    },
+    "Claim": {
+      "description": "结构化论点/主张模型",
+      "properties": {
+        "claim_id": {
+          "description": "主张编号，如 C1, C2",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "statement": {
+          "description": "具体论断陈述",
+          "title": "Statement",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "description": "所引用的证据编号列表",
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "time_scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "时间范围",
+          "title": "Time Scope"
+        },
+        "applicability_scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "适用地区或对象范围",
+          "title": "Applicability Scope"
+        },
+        "limitations": {
+          "description": "研究员标记的边界限制与不确定性",
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "statement"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "DecisionType": {
+      "description": "HOST 决策类型",
+      "enum": [
+        "approve",
+        "revise",
+        "finalize_with_unresolved"
+      ],
+      "title": "DecisionType",
+      "type": "string"
+    },
+    "DirectiveItem": {
+      "description": "HOST 定向下发的补充研究任务",
+      "properties": {
+        "directive_id": {
+          "description": "指令ID",
+          "title": "Directive Id",
+          "type": "string"
+        },
+        "target_role": {
+          "$ref": "#/$defs/ResearchRole",
+          "description": "目标执行角色"
+        },
+        "related_claim_or_issue": {
+          "description": "关联的具体论点或疑点",
+          "title": "Related Claim Or Issue",
+          "type": "string"
+        },
+        "question": {
+          "description": "需要补充回答的具体问题",
+          "title": "Question",
+          "type": "string"
+        },
+        "suggested_action": {
+          "description": "建议执行的动作或工具检索方案",
+          "title": "Suggested Action",
+          "type": "string"
+        },
+        "completion_criteria": {
+          "description": "客观可检验的完成标准",
+          "title": "Completion Criteria",
+          "type": "string"
+        }
+      },
+      "required": [
+        "directive_id",
+        "target_role",
+        "related_claim_or_issue",
+        "question",
+        "suggested_action",
+        "completion_criteria"
+      ],
+      "title": "DirectiveItem",
+      "type": "object"
+    },
+    "Evidence": {
+      "description": "证据与溯源模型",
+      "properties": {
+        "evidence_id": {
+          "description": "证据编号，如 E1, E2",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "source_type": {
+          "description": "来源类型：official_doc, webpage, db_record, media_card, comment_sample 等",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "source_ref": {
+          "description": "URL或内部数据库检索标识",
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "title": {
+          "description": "证据标题或信源名称",
+          "title": "Title",
+          "type": "string"
+        },
+        "excerpt": {
+          "description": "支撑主张的关键摘录内容",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "retrieval_time": {
+          "description": "系统抓取/检索时间",
+          "title": "Retrieval Time",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "来源内容实际发布日期（未知可为空）",
+          "title": "Source Date"
+        },
+        "is_full_text": {
+          "default": false,
+          "description": "是否经过完整正文核查，而非仅凭摘要",
+          "title": "Is Full Text",
+          "type": "boolean"
+        },
+        "coverage_scope": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "覆盖范围元数据",
+          "title": "Coverage Scope"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_type",
+        "source_ref",
+        "title",
+        "excerpt",
+        "retrieval_time"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "EvolutionFinding": {
+      "description": "舆情演化角色专属成果",
+      "properties": {
+        "metric_definition": {
+          "description": "指标定义与统计口径",
+          "title": "Metric Definition",
+          "type": "string"
+        },
+        "platform": {
+          "description": "覆盖的主要平台",
+          "title": "Platform",
+          "type": "string"
+        },
+        "time_window": {
+          "description": "时间窗口区间",
+          "title": "Time Window",
+          "type": "string"
+        },
+        "data_points": {
+          "description": "指标时间序列离散点",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Data Points",
+          "type": "array"
+        },
+        "missing_periods": {
+          "description": "缺失或中断的时间段",
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Periods",
+          "type": "array"
+        },
+        "phase_transition_analysis": {
+          "description": "生命周期与转折点判定方法依据",
+          "title": "Phase Transition Analysis",
+          "type": "string"
+        },
+        "concurrent_events": {
+          "description": "同期的外部关联事件",
+          "items": {
+            "type": "string"
+          },
+          "title": "Concurrent Events",
+          "type": "array"
+        },
+        "limitations": {
+          "description": "数据覆盖局限",
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "metric_definition",
+        "platform",
+        "time_window",
+        "phase_transition_analysis"
+      ],
+      "title": "EvolutionFinding",
+      "type": "object"
+    },
+    "FeedbackFinding": {
+      "description": "公众反馈角色专属成果",
+      "properties": {
+        "sampling_method": {
+          "description": "抽样与去重清洗方法",
+          "title": "Sampling Method",
+          "type": "string"
+        },
+        "sample_size": {
+          "description": "有效抽样样本量",
+          "minimum": 0,
+          "title": "Sample Size",
+          "type": "integer"
+        },
+        "viewpoint_breakdown": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "观点分类与占比",
+          "title": "Viewpoint Breakdown",
+          "type": "object"
+        },
+        "sentiment_distribution": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "情绪分类比例",
+          "title": "Sentiment Distribution",
+          "type": "object"
+        },
+        "demands_summary": {
+          "description": "高频利益诉求提炼",
+          "items": {
+            "type": "string"
+          },
+          "title": "Demands Summary",
+          "type": "array"
+        },
+        "denominator_info": {
+          "description": "样本基数与分母说明，不混淆为全网总量",
+          "title": "Denominator Info",
+          "type": "string"
+        },
+        "representative_quotes": {
+          "description": "代表性原声引语",
+          "items": {
+            "type": "string"
+          },
+          "title": "Representative Quotes",
+          "type": "array"
+        },
+        "limitations": {
+          "description": "下沉抽样偏差与局限说明",
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sampling_method",
+        "sample_size",
+        "denominator_info"
+      ],
+      "title": "FeedbackFinding",
+      "type": "object"
+    },
+    "HostReviewDecision": {
+      "description": "HOST 会商评审决定",
+      "properties": {
+        "task_id": {
+          "description": "评审关联的任务ID",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "round": {
+          "description": "当前评审轮次",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "decision": {
+          "$ref": "#/$defs/DecisionType",
+          "description": "评审决定"
+        },
+        "rationale": {
+          "description": "三方观点综合对比研判理由",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "directives": {
+          "description": "定向下发补查任务",
+          "items": {
+            "$ref": "#/$defs/DirectiveItem"
+          },
+          "title": "Directives",
+          "type": "array"
+        },
+        "unresolved_issues": {
+          "description": "当前未决疑点列表",
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved Issues",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "round",
+        "decision",
+        "rationale"
+      ],
+      "title": "HostReviewDecision",
+      "type": "object"
+    },
+    "ReportJudgment": {
+      "description": "Report Agent 综合研判结论",
+      "properties": {
+        "overall_interpretation": {
+          "description": "全景解释与定性",
+          "title": "Overall Interpretation",
+          "type": "string"
+        },
+        "risks": {
+          "description": "研判风险点清单",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Risks",
+          "type": "array"
+        },
+        "recommendations": {
+          "description": "应对处置建议",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Recommendations",
+          "type": "array"
+        },
+        "linked_claim_ids": {
+          "description": "支撑研判的核心主张ID",
+          "items": {
+            "type": "string"
+          },
+          "title": "Linked Claim Ids",
+          "type": "array"
+        },
+        "linked_evidence_ids": {
+          "description": "关联证据ID",
+          "items": {
+            "type": "string"
+          },
+          "title": "Linked Evidence Ids",
+          "type": "array"
+        },
+        "applicability_conditions": {
+          "description": "政策/研判适用条件",
+          "items": {
+            "type": "string"
+          },
+          "title": "Applicability Conditions",
+          "type": "array"
+        },
+        "alternative_explanations": {
+          "description": "备选替代假设与反证可能",
+          "items": {
+            "type": "string"
+          },
+          "title": "Alternative Explanations",
+          "type": "array"
+        },
+        "uncertainties": {
+          "description": "不可知或不确定性限制",
+          "items": {
+            "type": "string"
+          },
+          "title": "Uncertainties",
+          "type": "array"
+        }
+      },
+      "required": [
+        "overall_interpretation"
+      ],
+      "title": "ReportJudgment",
+      "type": "object"
+    },
+    "ResearchResult": {
+      "description": "研究成果统一提交模型",
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/ResearchRole",
+          "description": "提交角色"
+        },
+        "round": {
+          "description": "所属研究轮次（最多3轮）",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "claims": {
+          "description": "主张列表",
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "evidence_pool": {
+          "description": "证据池",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence Pool",
+          "type": "array"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "description": "研究范围边界",
+          "title": "Scope",
+          "type": "object"
+        },
+        "changes_from_previous_round": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "相对上轮变动说明",
+          "title": "Changes From Previous Round"
+        },
+        "coverage_list": {
+          "description": "已覆盖的问题清单",
+          "items": {
+            "type": "string"
+          },
+          "title": "Coverage List",
+          "type": "array"
+        },
+        "unresolved_issues": {
+          "description": "本轮未解决疑点",
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved Issues",
+          "type": "array"
+        },
+        "tool_call_summary": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "工具调用耗用统计",
+          "title": "Tool Call Summary"
+        },
+        "authority_finding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthorityFinding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evolution_finding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvolutionFinding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "feedback_finding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeedbackFinding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "role",
+        "round"
+      ],
+      "title": "ResearchResult",
+      "type": "object"
+    },
+    "ResearchRole": {
+      "description": "研究角色枚举",
+      "enum": [
+        "authority",
+        "evolution",
+        "feedback",
+        "host",
+        "report",
+        "verifier"
+      ],
+      "title": "ResearchRole",
+      "type": "string"
+    },
+    "ResearchRun": {
+      "description": "运行实例持久化数据",
+      "properties": {
+        "run_id": {
+          "description": "运行ID",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "topic": {
+          "description": "研究主题",
+          "title": "Topic",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "description": "时间与主体范围",
+          "title": "Scope",
+          "type": "object"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus",
+          "default": "planning",
+          "description": "运行状态"
+        },
+        "current_round": {
+          "default": 1,
+          "description": "当前轮次",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Current Round",
+          "type": "integer"
+        },
+        "max_rounds": {
+          "default": 3,
+          "description": "最大允许轮次",
+          "title": "Max Rounds",
+          "type": "integer"
+        },
+        "budget_total": {
+          "default": 50,
+          "description": "总工具调用预算",
+          "title": "Budget Total",
+          "type": "integer"
+        },
+        "budget_used": {
+          "default": 0,
+          "description": "已消耗工具调用数",
+          "title": "Budget Used",
+          "type": "integer"
+        },
+        "created_at": {
+          "description": "创建时间",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "description": "更新时间",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "topic",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "ResearchRun",
+      "type": "object"
+    },
+    "ResearchTask": {
+      "description": "子任务持久化数据",
+      "properties": {
+        "task_id": {
+          "description": "任务ID",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "运行ID",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/ResearchRole",
+          "description": "执行角色"
+        },
+        "round": {
+          "default": 1,
+          "description": "所属轮次",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "question": {
+          "description": "研究问题",
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "description": "特定范围限制",
+          "title": "Scope",
+          "type": "object"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "pending",
+          "description": "任务状态"
+        },
+        "assigned_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "执行实例标识",
+          "title": "Assigned To"
+        },
+        "budget_allocated": {
+          "default": 12,
+          "description": "分配的工具预算",
+          "title": "Budget Allocated",
+          "type": "integer"
+        },
+        "created_at": {
+          "description": "创建时间",
+          "title": "Created At",
+          "type": "string"
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "完成时间",
+          "title": "Completed At"
+        }
+      },
+      "required": [
+        "task_id",
+        "run_id",
+        "role",
+        "question",
+        "created_at"
+      ],
+      "title": "ResearchTask",
+      "type": "object"
+    },
+    "RunStatus": {
+      "description": "全任务运行状态",
+      "enum": [
+        "planning",
+        "researching",
+        "reviewing",
+        "approved",
+        "writing",
+        "final_check",
+        "completed",
+        "paused",
+        "cancelled"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "TaskStatus": {
+      "description": "子任务状态",
+      "enum": [
+        "pending",
+        "running",
+        "submitted",
+        "failed",
+        "cancelled"
+      ],
+      "title": "TaskStatus",
+      "type": "string"
+    },
+    "VerificationItem": {
+      "description": "核验条目模型",
+      "properties": {
+        "claim_id": {
+          "description": "被核验的主张编号",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_statement": {
+          "description": "核验时的论点原文",
+          "title": "Claim Statement",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VerificationStatus",
+          "description": "核验结论"
+        },
+        "rationale": {
+          "description": "核验分析理由与对比依据",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "supplementary_evidence_ids": {
+          "description": "核验中补充提取的证据编号",
+          "items": {
+            "type": "string"
+          },
+          "title": "Supplementary Evidence Ids",
+          "type": "array"
+        },
+        "suggested_checks": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "建议的进一步核查任务说明",
+          "title": "Suggested Checks"
+        }
+      },
+      "required": [
+        "claim_id",
+        "claim_statement",
+        "status",
+        "rationale"
+      ],
+      "title": "VerificationItem",
+      "type": "object"
+    },
+    "VerificationStatus": {
+      "description": "核验状态",
+      "enum": [
+        "supported",
+        "partially_supported",
+        "unsupported",
+        "contradicted",
+        "uncertain"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
+  "description": "跨语言交互完整的阶段/终态数据集合包",
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/ResearchRun"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/ResearchTask"
+      },
+      "title": "Tasks",
+      "type": "array"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/ResearchResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "verifications": {
+      "items": {
+        "$ref": "#/$defs/VerificationItem"
+      },
+      "title": "Verifications",
+      "type": "array"
+    },
+    "host_decisions": {
+      "items": {
+        "$ref": "#/$defs/HostReviewDecision"
+      },
+      "title": "Host Decisions",
+      "type": "array"
+    },
+    "report_judgment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReportJudgment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "artifact": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Artifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "run"
+  ],
+  "title": "ResearchBundle",
+  "type": "object"
+}

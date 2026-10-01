@@ -1,0 +1,245 @@
+{
+  "run": {
+    "run_id": "run-20261001-001",
+    "topic": "某地暴雨应急处置与网络舆情演化",
+    "scope": {
+      "region": "某市某区",
+      "time_window": "2026-09-28至2026-10-01"
+    },
+    "status": "approved",
+    "current_round": 1,
+    "max_rounds": 3,
+    "budget_total": 50,
+    "budget_used": 14,
+    "created_at": "2026-10-01T08:00:00Z",
+    "updated_at": "2026-10-01T09:30:00Z"
+  },
+  "tasks": [
+    {
+      "task_id": "task-auth-001",
+      "run_id": "run-20261001-001",
+      "role": "authority",
+      "round": 1,
+      "question": "核查官方权威通报文号、伤亡统计口径及救援部署声明",
+      "scope": { "region": "涉事区域" },
+      "status": "submitted",
+      "assigned_to": "pi-authority-worker-1",
+      "budget_allocated": 12,
+      "created_at": "2026-10-01T08:05:00Z",
+      "completed_at": "2026-10-01T08:25:00Z"
+    },
+    {
+      "task_id": "task-evo-001",
+      "run_id": "run-20261001-001",
+      "role": "evolution",
+      "round": 1,
+      "question": "梳理社媒热度曲线、关键转折节点与同期关联事件",
+      "scope": { "platforms": ["weibo", "douyin", "bilibili"] },
+      "status": "submitted",
+      "assigned_to": "pi-evolution-worker-1",
+      "budget_allocated": 12,
+      "created_at": "2026-10-01T08:05:00Z",
+      "completed_at": "2026-10-01T08:26:00Z"
+    },
+    {
+      "task_id": "task-feed-001",
+      "run_id": "run-20261001-001",
+      "role": "feedback",
+      "round": 1,
+      "question": "抽样分析公众核心关切、利益诉求与情绪极性分布",
+      "scope": { "sample_size": 2500 },
+      "status": "submitted",
+      "assigned_to": "pi-feedback-worker-1",
+      "budget_allocated": 12,
+      "created_at": "2026-10-01T08:05:00Z",
+      "completed_at": "2026-10-01T08:28:00Z"
+    }
+  ],
+  "results": [
+    {
+      "role": "authority",
+      "round": 1,
+      "claims": [
+        {
+          "claim_id": "C-AUTH-01",
+          "statement": "市应急管理局已于9月30日18时启动二级防汛响应，并通报无人员失联",
+          "evidence_ids": ["E-AUTH-01"],
+          "time_scope": "2026-09-30 18:00",
+          "applicability_scope": "全市行政区域",
+          "limitations": ["仅涵盖市局统一口径，不代表各街道细分处置"]
+        }
+      ],
+      "evidence_pool": [
+        {
+          "evidence_id": "E-AUTH-01",
+          "source_type": "official_doc",
+          "source_ref": "https://gov.example.com/notices/2026-flood-0930",
+          "title": "市应急管理局关于防汛应急响应的通告",
+          "excerpt": "全市于9月30日18时启动防汛二级应急响应，各抢险队伍已到位，截至发稿无人员伤亡失联。",
+          "retrieval_time": "2026-10-01T08:12:00Z",
+          "source_date": "2026-09-30T18:15:00Z",
+          "is_full_text": true,
+          "coverage_scope": { "level": "citywide" }
+        }
+      ],
+      "scope": { "entity": "应急管理局" },
+      "coverage_list": ["防汛响应级别", "官方人员伤亡通报"],
+      "unresolved_issues": ["基层安置点物资保障细则尚未披露"],
+      "authority_finding": {
+        "entity_name": "市应急管理指挥中心",
+        "source_type": "政府官方网站通报",
+        "published_at": "2026-09-30T18:15:00Z",
+        "raw_text": "全市于9月30日18时启动防汛二级应急响应，各抢险队伍已到位，截至发稿无人员伤亡失联。",
+        "stance_evolution": "由防范预警提升至战时处置，定调果断稳定",
+        "covered_issues": ["响应等级", "伤亡核查", "队伍调度"],
+        "unaddressed_issues": ["农田排涝救灾后续资金"]
+      }
+    },
+    {
+      "role": "evolution",
+      "round": 1,
+      "claims": [
+        {
+          "claim_id": "C-EVO-01",
+          "statement": "舆情热度于9月30日21时达到峰值后快速回落，官方通报为关键转折节点",
+          "evidence_ids": ["E-EVO-01"],
+          "time_scope": "2026-09-30至2026-10-01",
+          "applicability_scope": "主流社交平台传播流",
+          "limitations": ["快手短视频数据略有滞后"]
+        }
+      ],
+      "evidence_pool": [
+        {
+          "evidence_id": "E-EVO-01",
+          "source_type": "db_record",
+          "source_ref": "db://timeline/topic_7392",
+          "title": "社媒声量时间序列数据",
+          "excerpt": "9月30日19时热度指数4200，21时达到峰值18900，官方发布后于23时回落至7500。",
+          "retrieval_time": "2026-10-01T08:15:00Z",
+          "source_date": "2026-10-01T00:00:00Z",
+          "is_full_text": true
+        }
+      ],
+      "scope": { "time_range": "48h" },
+      "coverage_list": ["声量曲线", "峰值时间", "转折归因"],
+      "unresolved_issues": [],
+      "evolution_finding": {
+        "metric_definition": "互动声量指数（包含转发、点赞、评论标准化权重）",
+        "platform": "微博与抖音双平台主数据",
+        "time_window": "2026-09-29 00:00 至 2026-10-01 08:00",
+        "data_points": [
+          { "time": "2026-09-30T12:00:00Z", "index": 2100 },
+          { "time": "2026-09-30T21:00:00Z", "index": 18900 },
+          { "time": "2026-10-01T08:00:00Z", "index": 4300 }
+        ],
+        "missing_periods": [],
+        "phase_transition_analysis": "官方通报发布后2小时内，恐慌情绪扩散被有效阻断，进入长尾理性讨论期",
+        "concurrent_events": ["周边省市降雨预警同步发布"],
+        "limitations": ["小红书小众圈层未纳入加权"]
+      }
+    },
+    {
+      "role": "feedback",
+      "round": 1,
+      "claims": [
+        {
+          "claim_id": "C-FEED-01",
+          "statement": "公众关切从前期的暴雨险情转移至交通早高峰积水与停课停工安排",
+          "evidence_ids": ["E-FEED-01"],
+          "time_scope": "2026-10-01晨间",
+          "applicability_scope": "市民通勤群体",
+          "limitations": ["线上抽样偏年轻化，老年群体诉求覆盖有限"]
+        }
+      ],
+      "evidence_pool": [
+        {
+          "evidence_id": "E-FEED-01",
+          "source_type": "comment_sample",
+          "source_ref": "db://comments/sample_20261001",
+          "title": "市民评论聚类分析",
+          "excerpt": "在2500条抽样中，关于停课停工安排占比48%，道路积水通行占比32%，救援关切降至12%。",
+          "retrieval_time": "2026-10-01T08:20:00Z",
+          "source_date": "2026-10-01T07:30:00Z",
+          "is_full_text": true
+        }
+      ],
+      "scope": { "sample_size": 2500 },
+      "coverage_list": ["情绪占比", "诉求分类"],
+      "unresolved_issues": ["偏远村镇受困人员诉求样本较少"],
+      "feedback_finding": {
+        "sampling_method": "分层随机抽样，去重低质机器人水军",
+        "sample_size": 2500,
+        "viewpoint_breakdown": {
+          "咨询停课停工安排": 0.48,
+          "反映道路积水堵车": 0.32,
+          "点赞抢险处置速度": 0.15,
+          "其他": 0.05
+        },
+        "sentiment_distribution": {
+          "理性中立": 0.55,
+          "焦虑急切": 0.35,
+          "正面认可": 0.10
+        },
+        "demands_summary": ["尽早公布早高峰地铁公交营运与停课细则"],
+        "denominator_info": "抽样自微博同城与抖音本地频道共计5.8万条相关评论",
+        "representative_quotes": ["明天早上到底要不要上班，单位还在等通知"],
+        "limitations": ["未覆盖离线线下求助热线数据"]
+      }
+    }
+  ],
+  "verifications": [
+    {
+      "claim_id": "C-AUTH-01",
+      "claim_statement": "市应急管理局已于9月30日18时启动二级防汛响应，并通报无人员失联",
+      "status": "supported",
+      "rationale": "比对官网发布文号与省防汛网同步记录，信息确凿属实。",
+      "supplementary_evidence_ids": ["E-AUTH-01"],
+      "suggested_checks": null
+    }
+  ],
+  "host_decisions": [
+    {
+      "task_id": "task-review-001",
+      "round": 1,
+      "decision": "approve",
+      "rationale": "三方证据链条完备，官方定调与热度回落及市民诉求转向高度契合，无重大事实冲突，准予提前放行出具专报。",
+      "directives": [],
+      "unresolved_issues": ["后续安置救助资金有待进一步跟踪"]
+    }
+  ],
+  "report_judgment": {
+    "overall_interpretation": "本次暴雨应急响应迅速果断，舆情生命周期呈现典型的‘高开快落’特征。当前主要矛盾已从险情担忧转移至次日民生通勤保障。",
+    "risks": [
+      {
+        "risk_point": "早高峰次生积水可能引发次生民生抱怨",
+        "level": "中",
+        "probability": "较高"
+      }
+    ],
+    "recommendations": [
+      {
+        "target": "交通与教育部门",
+        "measure": "于10月1日早6点前统一发布通勤指引与停课调休预案"
+      }
+    ],
+    "linked_claim_ids": ["C-AUTH-01", "C-EVO-01", "C-FEED-01"],
+    "linked_evidence_ids": ["E-AUTH-01", "E-EVO-01", "E-FEED-01"],
+    "applicability_conditions": ["天气雷达预报无二次大暴雨突袭"],
+    "alternative_explanations": ["若雨势持续升级，热度可能面临二次反弹"],
+    "uncertainties": ["偏远村镇地下管网隐患排查进度暂未计入"]
+  },
+  "artifact": {
+    "artifact_id": "art-20261001-001",
+    "run_id": "run-20261001-001",
+    "version": 1,
+    "research_versions": {
+      "authority": 1,
+      "evolution": 1,
+      "feedback": 1
+    },
+    "judgment_version": 1,
+    "final_check_passed": true,
+    "ir_content": { "document_type": "special_briefing" },
+    "output_file_paths": { "markdown": "/data/reports/special_briefing_20261001.md" }
+  }
+}
