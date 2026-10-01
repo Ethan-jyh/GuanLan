@@ -1,7 +1,7 @@
 {
-  "name": "bettafish-agent-runtime",
+  "name": "guanlan-agent-runtime",
   "version": "0.1.0",
-  "description": "Pi agent runtime for BettaFish multi-agent research architecture",
+  "description": "Agent runtime for GuanLan multi-agent research architecture",
   "type": "module",
   "main": "dist/src/index.js",
   "scripts": {

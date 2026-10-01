@@ -36,7 +36,7 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
   const port = options.port ?? 4000;
   const dbPath = options.dbPath ?? ':memory:';
   const pythonBaseUrl = options.pythonBaseUrl ?? 'http://127.0.0.1:5000';
-  const token = options.internalToken ?? 'bettafish-internal-secret';
+  const token = options.internalToken ?? 'guanlan-internal-secret';
 
   // Initialize SQLite persistence & domain layer
   const db = createDatabase(dbPath);

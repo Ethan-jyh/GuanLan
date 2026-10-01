@@ -1,41 +1,37 @@
 version: "3.9"
 
 services:
-  bettafish:
-    image: ghcr.io/666ghj/bettafish:latest
-    # Speed up mirror
-    # image: ghcr.nju.edu.cn/666ghj/bettafish:latest
-    container_name: bettafish
+  guanlan-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guanlan-runtime
     restart: unless-stopped
     environment:
+      - NODE_ENV=production
+      - PORT=3000
       - PYTHONUNBUFFERED=1
-      - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
     ports:
-      - "5000:5000"
-      - "8501:8501"
-      - "8502:8502"
-      - "8503:8503"
+      - "3000:3000"
     volumes:
       - ./logs:/app/logs
       - ./final_reports:/app/final_reports
-      - ./.env:/app/.env  
-      - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
-      - ./media_engine_streamlit_reports:/app/media_engine_streamlit_reports
-      - ./query_engine_streamlit_reports:/app/query_engine_streamlit_reports
+      - ./data:/app/data
+      - ./.env:/app/.env
+    depends_on:
+      - db
 
   db:
     image: postgres:15
-    container_name: bettafish-db
+    container_name: guanlan-db
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      # Postgres 官方镜像只识别 POSTGRES_* 用于初始化；
-      # 而本项目的应用侧读取 DB_*（见 .env）。这里做一次映射，确保两边一致。
-      POSTGRES_USER: ${DB_USER:-${POSTGRES_USER:-bettafish}}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:-bettafish}}
-      POSTGRES_DB: ${DB_NAME:-${POSTGRES_DB:-bettafish}}
+      POSTGRES_USER: ${DB_USER:-guanlan}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-guanlan}
+      POSTGRES_DB: ${DB_NAME:-guanlan}
     ports:
-      - "${POSTGRES_PORT:-5444}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ./db_data:/var/lib/postgresql/data

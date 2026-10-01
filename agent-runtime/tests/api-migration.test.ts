@@ -161,13 +161,13 @@ describe('Task 7: REST API, SSE Events, and Web Dashboard Migration', () => {
       const rootResp = await fetch(`${baseUrl}/`);
       assert.equal(rootResp.status, 200);
       const html1 = await rootResp.text();
-      assert.ok(html1.includes('BettaFish'));
-      assert.ok(html1.includes('舆情'));
+      assert.ok(html1.includes('GuanLan'));
+      assert.ok(html1.includes('研判'));
 
       const dashResp = await fetch(`${baseUrl}/dashboard`);
       assert.equal(dashResp.status, 200);
       const html2 = await dashResp.text();
-      assert.ok(html2.includes('BettaFish'));
+      assert.ok(html2.includes('GuanLan'));
     });
   });
 });

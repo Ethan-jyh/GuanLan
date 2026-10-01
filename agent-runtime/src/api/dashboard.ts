@@ -4,7 +4,7 @@ export function renderDashboardHtml(): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BettaFish 多智能体协同舆情研判工作台</title>
+  <title>「观澜 · GuanLan」全媒体多智能体态势研判工作台</title>
   <style>
     :root {
       --primary: #1a365d;
@@ -142,8 +142,8 @@ export function renderDashboardHtml(): string {
 </head>
 <body>
   <header>
-    <h1>BettaFish 多智能体协同舆情研判工作台</h1>
-    <span class="badge">Pure TypeScript Node.js Runtime</span>
+    <h1>🌊 观澜 · GuanLan 全媒体多智能体态势研判工作台</h1>
+    <span class="badge">TypeScript Orchestration Runtime</span>
   </header>
 
   <main>

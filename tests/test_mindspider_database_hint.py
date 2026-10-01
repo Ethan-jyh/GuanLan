@@ -1,7 +1,10 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
+import pytest
 
+pytest.importorskip("pymysql")
 from MindSpider import main as mindspider_main
+
 
 
 class FakeConnection:

@@ -38,7 +38,7 @@ export class ResearchApiRouter {
 
     // 2. Health check
     if (method === 'GET' && pathname === '/health') {
-      this.sendJson(res, 200, { status: 'ok', service: 'bettafish-agent-runtime' });
+      this.sendJson(res, 200, { status: 'ok', service: 'guanlan-agent-runtime' });
       return true;
     }
 
