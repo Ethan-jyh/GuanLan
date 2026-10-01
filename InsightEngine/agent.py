@@ -534,13 +534,16 @@ class DeepSearchAgent:
 
             # Step 2.5: 阶段评审检查点与协作闭环（若处于协作任务中）
             if task_id:
-                from ForumEngine.adapter import ForumAgentAdapter
-                logger.info(f"\n[步骤 2.5] 进入论坛 HOST 阶段评审流程 (Task: {task_id})...")
-                ForumAgentAdapter.collaborate_and_review(
-                    agent_instance=self,
-                    task_id=task_id,
-                    agent_id="insight"
-                )
+                try:
+                    from ForumEngine.adapter import ForumAgentAdapter
+                    logger.info(f"\n[步骤 2.5] 进入阶段评审流程 (Task: {task_id})...")
+                    ForumAgentAdapter.collaborate_and_review(
+                        agent_instance=self,
+                        task_id=task_id,
+                        agent_id="insight"
+                    )
+                except ImportError:
+                    pass
 
             # Step 3: 生成最终报告
             final_report = self._generate_final_report()
@@ -549,8 +552,11 @@ class DeepSearchAgent:
             if save_report:
                 report_path = self._save_report(final_report)
                 if task_id and report_path:
-                    from ForumEngine.client import ForumReviewClient
-                    ForumReviewClient().register_final_report(task_id, "insight", report_path)
+                    try:
+                        from ForumEngine.client import ForumReviewClient
+                        ForumReviewClient().register_final_report(task_id, "insight", report_path)
+                    except ImportError:
+                        pass
 
             logger.info("深度研究完成！")
 

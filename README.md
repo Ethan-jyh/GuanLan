@@ -157,12 +157,8 @@ GuanLan/
 │   ├── report_template/                    # Markdown模板库
 │   │   ├── 企业品牌声誉分析报告.md
 │   │   └── ...
-│   └── __init__.py
-├── ForumEngine/                            # (历史参考) 早期漫谈式协作原型
-│   ├── monitor.py                          # 早期日志监控
-│   ├── llm_host.py                         # 早期主持人LLM模块
-│   └── __init__.py
 ├── MindSpider/                             # 社交媒体爬虫系统
+
 │   ├── main.py                             # 爬虫主程序入口
 │   ├── config.py                           # 爬虫配置文件
 │   ├── BroadTopicExtraction/               # 话题提取模块
@@ -207,32 +203,21 @@ GuanLan/
 │       ├── train.py
 │       ├── predict.py
 │       └── ...
-├── SingleEngineApp/                        # 单独Agent的Streamlit应用
-│   ├── query_engine_streamlit_app.py       # QueryEngine独立应用
-│   ├── media_engine_streamlit_app.py       # MediaEngine独立应用
-│   └── insight_engine_streamlit_app.py     # InsightEngine独立应用
-├── query_engine_streamlit_reports/         # QueryEngine单应用运行输出
-├── media_engine_streamlit_reports/         # MediaEngine单应用运行输出
-├── insight_engine_streamlit_reports/       # InsightEngine单应用运行输出
 ├── templates/                              # Flask前端模板
 │   └── index.html                          # 主界面HTML
 ├── static/                                 # 静态资源
-│   ├── image/                              # 图片资源
-│   │   └── ...
-│   ├── Partial README for PDF Exporting/   # PDF导出依赖配置说明
-│   └── v2_report_example/                  # 报告渲染示例
-│       └── report_all_blocks_demo/         # 全块类型演示（HTML/PDF/MD）
+│   ├── image/                              # 架构图与系统资源
+│   └── ...
 ├── logs/                                   # 运行日志目录
-├── final_reports/                          # 最终生成的报告文件
+├── final_reports/                          # 最终生成的研判专报文件
 │   ├── ir/                                 # 报告IR JSON文件
 │   └── *.html                              # 最终HTML报告
 ├── utils/                                  # 通用工具函数
-│   ├── forum_reader.py                     # (历史参考) 早期通信工具
-│   ├── github_issues.py                    # 统一生成GitHub Issue链接与错误提示
+│   ├── github_issues.py                    # 统一错误提示与反馈
 │   └── retry_helper.py                     # 网络请求重试机制工具
-├── tests/                                  # 单元测试与集成测试
+├── tests/                                  # 自动化测试套件
 │   ├── run_tests.py                        # pytest入口脚本
-│   ├── test_monitor.py                     # 早期监控单元测试
+
 │   ├── test_report_engine_sanitization.py  # ReportEngine安全性测试
 │   └── ...
 ├── app.py                                  # Flask主应用入口
