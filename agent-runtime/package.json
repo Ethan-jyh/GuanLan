@@ -12,6 +12,7 @@
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.99.2",
     "@earendil-works/pi-ai": "0.99.2",
+    "docx": "^9.8.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
