@@ -1334,8 +1334,69 @@ def export_markdown(task_id: str):
         }), 500
 
 
+@report_bp.route('/export/docx/<task_id>', methods=['GET'])
+def export_docx(task_id: str):
+    """
+    导出报告为 Word (.docx) 格式。
+    基于 Document IR 调用 DocxRenderer 生成文件并返回下载。
+    """
+    try:
+        task = tasks_registry.get(task_id)
+        if not task:
+            return jsonify({
+                'success': False,
+                'error': '任务不存在'
+            }), 404
+
+        if task.status != 'completed':
+            return jsonify({
+                'success': False,
+                'error': f'任务未完成，当前状态: {task.status}'
+            }), 400
+
+        if not task.ir_file_path or not os.path.exists(task.ir_file_path):
+            return jsonify({
+                'success': False,
+                'error': 'IR文件不存在，无法生成Word文档'
+            }), 404
+
+        with open(task.ir_file_path, 'r', encoding='utf-8') as f:
+            document_ir = json.load(f)
+
+        from .renderers import DocxRenderer
+        renderer = DocxRenderer()
+
+        metadata = document_ir.get('metadata') if isinstance(document_ir, dict) else {}
+        topic = (metadata or {}).get('topic') or (metadata or {}).get('title') or (metadata or {}).get('query') or task.query
+        safe_topic = _safe_filename_segment(topic or 'report')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"report_{safe_topic}_{timestamp}.docx"
+
+        output_dir = Path(settings.OUTPUT_DIR)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        docx_path = output_dir / filename
+
+        renderer.export_file(document_ir, str(docx_path))
+        logger.info(f"导出DOCX完成: {docx_path}")
+
+        return send_file(
+            str(docx_path),
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        logger.exception(f"导出DOCX失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'导出DOCX失败: {str(e)}'
+        }), 500
+
+
 @report_bp.route('/export/pdf/<task_id>', methods=['GET'])
 def export_pdf(task_id: str):
+
     """
     导出报告为PDF格式。
 

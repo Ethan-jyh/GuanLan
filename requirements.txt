@@ -57,8 +57,9 @@ plotly>=5.17.0
 matplotlib==3.9.0
 wordcloud==1.9.3
 
-# ===== PDF生成 =====
+# ===== 文档与PDF生成 =====
 weasyprint>=60.0  # PDF导出，支持Python 3.9-3.13
+python-docx>=1.1.0  # DOCX导出
 
 # ===== 机器学习 =====
 torch>=2.0.0 # CPU版本

@@ -6,6 +6,7 @@ Report Engine渲染器集合。
 
 from .html_renderer import HTMLRenderer
 from .pdf_renderer import PDFRenderer
+from .docx_renderer import DocxRenderer
 from .pdf_layout_optimizer import (
     PDFLayoutOptimizer,
     PDFLayoutConfig,
@@ -21,6 +22,7 @@ from .markdown_renderer import MarkdownRenderer
 __all__ = [
     "HTMLRenderer",
     "PDFRenderer",
+    "DocxRenderer",
     "MarkdownRenderer",
     "PDFLayoutOptimizer",
     "PDFLayoutConfig",
