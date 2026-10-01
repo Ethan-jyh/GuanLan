@@ -77,3 +77,8 @@ class BudgetManager:
         """获取全任务总剩余可用额度"""
         usage = self.storage.get_run_budget_usage(run_id)
         return max(0, self.total_tool_limit - usage["committed"])
+
+    def get_usage(self, run_id: str) -> Dict[str, int]:
+        """获取当前预算消耗明细"""
+        return self.storage.get_run_budget_usage(run_id)
+

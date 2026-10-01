@@ -134,9 +134,11 @@ class ResearchCoordinator:
                 max_rounds=row["max_rounds"],
                 budget_total=row["budget_total"],
                 budget_used=row["budget_used"],
+                execution_version=row["execution_version"] if "execution_version" in row.keys() else 1,
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
             )
+
 
     def get_tasks_for_round(self, run_id: str, round_num: int) -> List[ResearchTask]:
         """获取指定运行在特定轮次的全部子任务"""

@@ -206,8 +206,10 @@ class ResearchRun(BaseModel):
     max_rounds: int = Field(default=3, description="最大允许轮次")
     budget_total: int = Field(default=50, description="总工具调用预算")
     budget_used: int = Field(default=0, description="已消耗工具调用数")
+    execution_version: int = Field(default=1, ge=1, description="调度执行版本，用于并发失效控制")
     created_at: str = Field(..., description="创建时间")
     updated_at: str = Field(..., description="更新时间")
+
 
 
 class ResearchTask(BaseModel):

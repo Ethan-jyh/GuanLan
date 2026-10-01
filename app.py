@@ -84,6 +84,33 @@ try:
 except Exception as e:
     logger.error(f"ForumReview 接口注册失败: {e}")
 
+# 注册 ResearchEngine Blueprint (Pi 主从子智能体研究架构)
+try:
+    from ResearchEngine.flask_routes import research_bp
+    from ResearchEngine.recovery import RecoveryManager
+    from ResearchEngine.storage import ResearchStorage
+    from ResearchEngine.coordinator import ResearchCoordinator
+    from ResearchEngine.submissions import SubmissionManager
+    from ResearchEngine.evidence import EvidenceStore
+    from ResearchEngine.budget import BudgetManager
+
+    app.register_blueprint(research_bp, url_prefix='/api/research')
+    logger.info("ResearchEngine 接口已注册 (/api/research/runs)")
+
+    # 启动时执行未决任务安全暂停
+    _storage = ResearchStorage()
+    _ev_store = EvidenceStore(_storage.db_path)
+    _sub_mgr = SubmissionManager(_storage, _ev_store)
+    _b_mgr = BudgetManager(_storage)
+    _coord = ResearchCoordinator(_storage, _sub_mgr, _b_mgr)
+    _rec = RecoveryManager(_storage, _coord)
+    _paused = _rec.auto_pause_unended_runs_on_startup()
+    if _paused:
+        logger.info(f"ResearchEngine 启动恢复：已自动安全暂停 {len(_paused)} 项未决运行: {_paused}")
+except Exception as e:
+    logger.error(f"ResearchEngine 接口注册失败: {e}")
+
+
 # 创建日志目录
 LOG_DIR = Path('logs')
 LOG_DIR.mkdir(exist_ok=True)
