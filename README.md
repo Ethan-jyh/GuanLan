@@ -25,19 +25,20 @@
 
 ### 🚀 核心技术亮点
 
-1. **🚀 纯 TypeScript / Node.js 独立运行时 (`agent-runtime/`)**：
-   - 核心研判引擎已全面完成向纯 TypeScript 独立架构的演进，实现 **100% 独立于 Python 运行**。
+1. **现代 TypeScript 协同研判引擎 (`agent-runtime/`)**：
+   - 核心研判系统深度解耦，承载会商编排、状态机、严格证据溯源、IR 编译与决策专报装订，提供低延迟、强类型与高可靠的研判中枢。
    - **原生极速底座**：基于 Node.js 22 原生 `node:sqlite`（WAL 模式）、Zod 强类型领域契约与 SHA-256 去重证据池。
    - **严格证据闭环与预算管理**：每条核心事实必须双向绑定证据指纹，未验证事实无法入库；原子配额扣减确保终稿写作预算底线。
    - **3 角色会商屏障与强制收敛**：事实核查、态势演化、舆情反馈 3 智能体并行调研；第 3 轮会商强制收敛，彻底杜绝无限死循环。
-   - **91 项全量自动化测试 100% 通过**，涵盖 5 大基准用例（证据闭环、会商收敛、预算防护、崩溃恢复、专报导出）。
+   - **全量自动化测试套件**：内建 91 项自动化测试，全面覆盖证据闭环、会商收敛、预算防护、崩溃恢复与专报导出 5 大核心场景。
 
 2. **全媒体跨模态 Agent 矩阵架构**：
    - 权威叙事追踪、社媒跨模态感知与私有库情绪挖掘三层解耦的 Agent 矩阵。
    - 覆盖微博、小红书、抖音、快手等主流社媒图文、短视频及结构化卡片，实现全域态势的网格化感知。
 
-3. **多智能体异步会商博弈机制**：
-   - 针对单模型研判认知片面与顺从性问题，由首席分析师 Host 模型统筹，多角色在反思循环中交叉核验，大幅降低事实幻觉与片面率。
+3. **主控驱动的会商博弈与定向追查机制**：
+   - 告别传统松散漫谈模式，采用首席分析师 Host 模型统筹与同步屏障机制。
+   - 评审发现证据不足时，仅对特定智能体下发定向追查任务，其余角色成果自动 Carry-Forward，大幅降低幻觉与无效开销。
 
 4. **端云分级协同与轻量微调降本**：
    - 构建“本地轻量模型打标 + 云端大模型高层研判”架构；基于 LoRA 微调本地 BERT-Chinese 与小参数 Qwen 模型，完成多维度情绪极化分类，测试集 F1-score 达 91.8%，API 调用成本降低 74%。
@@ -47,35 +48,92 @@
 
 ## 🏗️ 系统架构
 
-### 整体架构图
+### 实时研判协同架构图
 
-**Insight Agent** 私有数据库挖掘：私有舆情数据库深度分析AI代理
+```mermaid
+flowchart TD
+    subgraph ClientLayer ["用户交互与调度入口"]
+        Web["Web 交互研判看板 (SSE 实时事件流)"]
+        API["RESTful API 服务 (Run 状态与控制)"]
+    end
 
-**Media Agent** 多模态内容分析：具备强大多模态能力的AI代理
+    subgraph HostCore ["主控协同研判中枢 (HostAgent)"]
+        Host["HostAgent (首席研判分析师)"]
+        Planner["TaskPlanner (DAG任务规划 / 依赖解耦)"]
+        Barrier["ResearchCoordinator (3角色会商同步屏障)"]
+        Review["ReviewManager (定向追查 / 第3轮强制收敛)"]
+        Verifier["VerifierComponent (事实与证据一致性核验)"]
+    end
 
-**Query Agent** 精准信息搜索：具备国内外网页搜索能力的AI代理
+    subgraph Subagents ["并行协同研判智能体矩阵"]
+        Fact["FactAgent (权威事实核查)"]
+        Evol["EvolutionAgent (演化态势分析)"]
+        Feed["FeedbackAgent (舆情反馈下钻)"]
+    end
 
-**Report Agent** 智能报告生成：内置模板的多轮报告生成AI代理
+    subgraph ToolBelt ["研判工具与能力集 (src/tools/)"]
+        T1["search (全网精准搜索)"]
+        T2["read_source (正文深度抽取)"]
+        T3["database (社媒参数化查询)"]
+        T4["feedback (多源评论采样)"]
+        T5["timeline (时序波次提取)"]
+    end
 
-<div align="center">
-<img src="static/image/framework.png" alt="banner" width="800">
-</div>
+    subgraph DataPlane ["数据底座与运行时安全 (src/storage/)"]
+        DB[("原生 SQLite (WAL 模式 / 事务保护)")]
+        EvStore["EvidenceStore (SHA-256 指纹去重 / 隔离)"]
+        EvtStore["EventStore (单调递增事件流)"]
+        Budget["BudgetLedger (原子配额 / 写作保底预算)"]
+    end
 
-### 一次完整分析流程
+    subgraph ReportPipeline ["受控编译级专报装订引擎 (src/reporting/)"]
+        InputBuild["buildReportInput (跨Run隔离 / 成果聚合)"]
+        Report["ReportAgent (态势统筹与内参综述撰写)"]
+        FinalCheck["FinalChecker (证据溯源强校验 / 空话套话拦截)"]
+        IRVal["IRValidator (Document IR 编译级契约校验)"]
+        Renderers["多格式渲染导出 (DOCX / HTML / MD / PDF)"]
+    end
 
-| 步骤 | 阶段名称 | 主要操作 | 参与组件 | 循环特性 |
-|------|----------|----------|----------|----------|
-| 1 | 用户提问 | Flask主应用接收查询 | Flask主应用 | - |
-| 2 | 并行启动 | 三个Agent同时开始工作 | Query Agent、Media Agent、Insight Agent | - |
-| 3 | 初步分析 | 各Agent使用专属工具进行概览搜索 | 各Agent + 专属工具集 | - |
-| 4 | 策略制定 | 基于初步结果制定分块研究策略 | 各Agent内部决策模块 | - |
-| 5-N | **循环阶段** | **论坛协作 + 深度研究** | **ForumEngine + 所有Agent** | **多轮循环** |
-| 5.1 | 深度研究 | 各Agent基于论坛主持人引导进行专项搜索 | 各Agent + 反思机制 + 论坛引导 | 每轮循环 |
-| 5.2 | 论坛协作 | ForumEngine监控Agent发言并生成主持人引导 | ForumEngine + LLM主持人 | 每轮循环 |
-| 5.3 | 交流融合 | 各Agent根据讨论调整研究方向 | 各Agent + forum_reader工具 | 每轮循环 |
-| N+1 | 结果整合 | Report Agent收集所有分析结果和论坛内容 | Report Agent | - |
-| N+2 | IR中间表示 | 动态选择模板和样式，多轮生成元数据，装订为IR中间表示 | Report Agent + 模板引擎 | - |
-| N+3 | 报告生成 | 分块进行质量检测，基于IR渲染成交互式 HTML 报告 | Report Agent + 装订引擎 | - |
+    subgraph SupportPlane ["采集支撑与轻量模型中间件 (Python / 本地)"]
+        Spider["MindSpider (社媒全模态采集集群)"]
+        LoRA["BERT-Chinese & Qwen LoRA 本地情绪极化模型"]
+    end
+
+    Web & API --> Host
+    Host --> Planner
+    Planner --> Subagents
+    Subagents --> ToolBelt
+    ToolBelt -. 采集支撑 .- Spider
+    ToolBelt -. 情绪打标 .- LoRA
+
+    Subagents --> EvStore
+    Subagents --> Barrier
+    Barrier --> Review
+    Review --> Verifier
+    Verifier -. 证据不足定向追查 .-> Subagents
+    Review -- 3轮收敛/会商通过 --> InputBuild
+    
+    InputBuild --> Report
+    Report --> FinalCheck
+    FinalCheck --> IRVal
+    IRVal --> Renderers
+
+    Subagents -. 预算扣减 .-> Budget
+    Host -. 状态落库 .-> DB
+    Host -. 实时事件 .-> EvtStore
+    EvtStore -. SSE 推送 .-> Web
+```
+
+### 一次完整研判决策流程
+
+| 阶段 | 核心动作 | 参与组件 | 核心机制与输出约束 |
+|---|---|---|---|
+| **1. 议题接收与 DAG 规划** | 接收用户研判议题，拆解研判意图并生成任务 DAG | HostAgent + TaskPlanner | 有向无环图依赖校验，初始角色预算分配，建立 Run 隔离域 |
+| **2. 三角色并行深入调研** | 3 智能体按职责并发调用工具链，提取核心事实 | Fact / Evolution / Feedback | 最大 3 并发调度；事实强绑定证据录入 EvidenceStore；原子预扣预算 |
+| **3. 会商屏障与事实核验** | 等待三方成果齐备，触发同步屏障与事实核验 | Coordinator + VerifierComponent | 严格核验 Claim 关联证据；支持官方事实与大众情绪多维共存评估 |
+| **4. Host 评审与定向追查** | Host 综合各方研判结果，决定通过或定向追加调研 | HostAgent + ReviewManager | **定向分派**：仅对信息缺口角色下发补充指令，其余角色 Carry-Forward；**第 3 轮强制收敛** |
+| **5. 受控编译与专报装订** | 聚合终审证据集，撰写长篇专报并装订多格式交付 | ReportAgent + IRValidator + Renderers | **FinalChecker 门禁**：拦截泛化空话套话与悬空事实；Document IR 语法校验；纯 JS 原生导出 DOCX/HTML/MD |
+
 
 ### 项目代码结构树
 
@@ -169,9 +227,9 @@ GuanLan/
 │   │   ├── 企业品牌声誉分析报告.md
 │   │   └── ...
 │   └── __init__.py
-├── ForumEngine/                            # 论坛引擎：Agent协作机制
-│   ├── monitor.py                          # 日志监控和论坛管理核心
-│   ├── llm_host.py                         # 论坛主持人LLM模块
+├── ForumEngine/                            # (历史参考) 早期漫谈式协作原型
+│   ├── monitor.py                          # 早期日志监控
+│   ├── llm_host.py                         # 早期主持人LLM模块
 │   └── __init__.py
 ├── MindSpider/                             # 社交媒体爬虫系统
 │   ├── main.py                             # 爬虫主程序入口
@@ -238,12 +296,12 @@ GuanLan/
 │   ├── ir/                                 # 报告IR JSON文件
 │   └── *.html                              # 最终HTML报告
 ├── utils/                                  # 通用工具函数
-│   ├── forum_reader.py                     # Agent间论坛通信工具
+│   ├── forum_reader.py                     # (历史参考) 早期通信工具
 │   ├── github_issues.py                    # 统一生成GitHub Issue链接与错误提示
 │   └── retry_helper.py                     # 网络请求重试机制工具
 ├── tests/                                  # 单元测试与集成测试
 │   ├── run_tests.py                        # pytest入口脚本
-│   ├── test_monitor.py                     # ForumEngine监控单元测试
+│   ├── test_monitor.py                     # 早期监控单元测试
 │   ├── test_report_engine_sanitization.py  # ReportEngine安全性测试
 │   └── ...
 ├── app.py                                  # Flask主应用入口
@@ -763,5 +821,5 @@ class DeepSearchAgent:
 
 ### 联系方式
 
-- 📧 **邮箱**：2645305646@qq.com
+- 📧 **邮箱**：ethan.jyh1205@gmail.com
 
