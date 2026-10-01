@@ -305,4 +305,4 @@ python predict.py --text "The overall response is remarkably positive." --lang "
 ## 📬 交流与支持
 
 - 📧 **联系邮箱**：`ethan.jyh1205@gmail.com`
-- 💬 **问题反馈**：欢迎通过 [GitHub Issues](https://github.com/jyhkkk/GuanLan/issues) 提交 Bug 或建议。
+- 💬 **问题反馈**：欢迎通过 [GitHub Issues](https://github.com/Ethan-jyh/GuanLan/issues) 提交 Bug 或建议。

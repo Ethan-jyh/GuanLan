@@ -10,7 +10,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 # GitHub 仓库信息
-GITHUB_REPO = "jyhkkk/GuanLan"
+GITHUB_REPO = "Ethan-jyh/GuanLan"
 GITHUB_ISSUES_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 
 

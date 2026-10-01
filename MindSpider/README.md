@@ -211,7 +211,7 @@ MindSpider 作为 BettaFish 的核心组件运行。请克隆 BettaFish 主项�
 **方式一：克隆时直接获取（推荐）**
 
 ```bash
-git clone https://github.com/jyhkkk/GuanLan.git
+git clone https://github.com/Ethan-jyh/GuanLan.git
 cd BettaFish/MindSpider
 ```
 
@@ -399,7 +399,7 @@ uv run main.py --deep-sentiment --platforms zhihu --test
 
 ### 其他问题
 
-https://github.com/jyhkkk/GuanLan/issues
+https://github.com/Ethan-jyh/GuanLan/issues
 
 ### 爬取参数调整
 

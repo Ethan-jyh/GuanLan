@@ -289,4 +289,4 @@ Distributed under the [GPL-2.0 License](LICENSE).
 ## 📬 Contact & Support
 
 - 📧 **Email**: `ethan.jyh1205@gmail.com`
-- 💬 **Issues**: Submit bugs and feature requests via [GitHub Issues](https://github.com/jyhkkk/GuanLan/issues).
+- 💬 **Issues**: Submit bugs and feature requests via [GitHub Issues](https://github.com/Ethan-jyh/GuanLan/issues).
