@@ -48,81 +48,12 @@
 
 ## 🏗️ 系统架构
 
-### 实时研判协同架构图
+<div align="center">
 
-```mermaid
-flowchart TD
-    subgraph ClientLayer ["用户交互与调度入口"]
-        Web["Web 交互研判看板 (SSE 实时事件流)"]
-        API["RESTful API 服务 (Run 状态与控制)"]
-    end
+<img src="static/image/framework.svg" alt="「观澜」全媒体多智能体态势研判与决策专报平台系统架构图" width="100%">
 
-    subgraph HostCore ["主控协同研判中枢 (HostAgent)"]
-        Host["HostAgent (首席研判分析师)"]
-        Planner["TaskPlanner (DAG任务规划 / 依赖解耦)"]
-        Barrier["ResearchCoordinator (3角色会商同步屏障)"]
-        Review["ReviewManager (定向追查 / 第3轮强制收敛)"]
-        Verifier["VerifierComponent (事实与证据一致性核验)"]
-    end
+</div>
 
-    subgraph Subagents ["并行协同研判智能体矩阵"]
-        Fact["FactAgent (权威事实核查)"]
-        Evol["EvolutionAgent (演化态势分析)"]
-        Feed["FeedbackAgent (舆情反馈下钻)"]
-    end
-
-    subgraph ToolBelt ["研判工具与能力集 (src/tools/)"]
-        T1["search (全网精准搜索)"]
-        T2["read_source (正文深度抽取)"]
-        T3["database (社媒参数化查询)"]
-        T4["feedback (多源评论采样)"]
-        T5["timeline (时序波次提取)"]
-    end
-
-    subgraph DataPlane ["数据底座与运行时安全 (src/storage/)"]
-        DB[("原生 SQLite (WAL 模式 / 事务保护)")]
-        EvStore["EvidenceStore (SHA-256 指纹去重 / 隔离)"]
-        EvtStore["EventStore (单调递增事件流)"]
-        Budget["BudgetLedger (原子配额 / 写作保底预算)"]
-    end
-
-    subgraph ReportPipeline ["受控编译级专报装订引擎 (src/reporting/)"]
-        InputBuild["buildReportInput (跨Run隔离 / 成果聚合)"]
-        Report["ReportAgent (态势统筹与内参综述撰写)"]
-        FinalCheck["FinalChecker (证据溯源强校验 / 空话套话拦截)"]
-        IRVal["IRValidator (Document IR 编译级契约校验)"]
-        Renderers["多格式渲染导出 (DOCX / HTML / MD / PDF)"]
-    end
-
-    subgraph SupportPlane ["采集支撑与轻量模型中间件 (Python / 本地)"]
-        Spider["MindSpider (社媒全模态采集集群)"]
-        LoRA["BERT-Chinese & Qwen LoRA 本地情绪极化模型"]
-    end
-
-    Web & API --> Host
-    Host --> Planner
-    Planner --> Subagents
-    Subagents --> ToolBelt
-    ToolBelt -. 采集支撑 .- Spider
-    ToolBelt -. 情绪打标 .- LoRA
-
-    Subagents --> EvStore
-    Subagents --> Barrier
-    Barrier --> Review
-    Review --> Verifier
-    Verifier -. 证据不足定向追查 .-> Subagents
-    Review -- 3轮收敛/会商通过 --> InputBuild
-    
-    InputBuild --> Report
-    Report --> FinalCheck
-    FinalCheck --> IRVal
-    IRVal --> Renderers
-
-    Subagents -. 预算扣减 .-> Budget
-    Host -. 状态落库 .-> DB
-    Host -. 实时事件 .-> EvtStore
-    EvtStore -. SSE 推送 .-> Web
-```
 
 ### 一次完整研判决策流程
 

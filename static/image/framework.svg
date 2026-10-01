@@ -1,0 +1,402 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 900" width="100%" height="100%" style="background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Grid Pattern for Header Cards -->
+    <pattern id="cardGrid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#E2E8F0" stroke-width="0.8"/>
+    </pattern>
+    <pattern id="bgGrid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="16" cy="16" r="0.8" fill="#E2E8F0"/>
+    </pattern>
+
+    <!-- Arrow Markers -->
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#3B82F6"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#8B5CF6"/>
+    </marker>
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0284C7"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D97706"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#E11D48"/>
+    </marker>
+    <marker id="arrowGray" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10B981"/>
+    </marker>
+
+    <!-- Drop Shadows -->
+    <filter id="softShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.04"/>
+    </filter>
+  </defs>
+
+  <!-- Background Pattern -->
+  <rect width="100%" height="100%" fill="#FFFFFF"/>
+  <rect width="100%" height="100%" fill="url(#bgGrid)"/>
+
+  <!-- ========================================== -->
+  <!-- LEFT COLUMN: Entry & Data Foundation -->
+  <!-- ========================================== -->
+
+  <!-- 1. User Query Pill -->
+  <g transform="translate(60, 40)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="280" height="60" rx="30" fill="#EBF5FF" stroke="#93C5FD" stroke-width="2"/>
+    <circle cx="36" cy="30" r="16" fill="#3B82F6"/>
+    <path d="M 36 22 A 5 5 0 1 0 36 32 A 5 5 0 1 0 36 22 Z M 27 38 C 27 34 31 33 36 33 C 41 33 45 34 45 38 Z" fill="#FFFFFF"/>
+    <text x="68" y="36" font-size="19" font-weight="600" font-style="italic" fill="#1E40AF">User Query</text>
+    <text x="176" y="35" font-size="14" font-weight="500" fill="#3B82F6">· 研判议题</text>
+  </g>
+
+  <!-- Arrow down to API -->
+  <path d="M 200 100 L 200 135" stroke="#3B82F6" stroke-width="2" fill="none" marker-end="url(#arrowBlue)"/>
+
+  <!-- 2. Web & REST API Card -->
+  <g transform="translate(50, 135)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="350" height="85" rx="14" fill="#FFFFFF" stroke="#334155" stroke-width="2"/>
+    <rect x="0" y="0" width="350" height="85" rx="14" fill="url(#cardGrid)"/>
+    <!-- Icon -->
+    <rect x="18" y="20" width="46" height="46" rx="10" fill="#0F172A"/>
+    <path d="M 28 35 L 54 35 M 28 43 L 54 43 M 28 51 L 46 51" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="33" cy="35" r="2" fill="#38BDF8"/>
+    <circle cx="41" cy="43" r="2" fill="#38BDF8"/>
+    <!-- Texts -->
+    <text x="76" y="44" font-size="20" font-weight="700" fill="#0F172A">Web &amp; REST API</text>
+    <text x="76" y="64" font-size="12" font-weight="600" fill="#0284C7">SSE Realtime Event Stream · Port 3000</text>
+  </g>
+
+  <!-- Connection to Data Plane -->
+  <path d="M 225 220 L 225 255" stroke="#64748B" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 215 228 L 235 228 M 218 233 L 232 233 M 221 238 L 229 238" stroke="#64748B" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- 3. Green Container: Data & Safety Foundation -->
+  <g transform="translate(45, 255)">
+    <rect x="0" y="0" width="360" height="590" rx="18" fill="#F0FDF4" stroke="#86EFAC" stroke-width="2"/>
+    
+    <!-- Title -->
+    <text x="24" y="36" font-size="18" font-weight="700" fill="#15803D">Data &amp; Safety Foundation</text>
+    <text x="24" y="55" font-size="12" font-weight="500" fill="#16A34A">数据安全与全网感知底座</text>
+
+    <!-- Sub-box 1: MindSpider Crawler Cluster -->
+    <g transform="translate(20, 72)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="320" height="110" rx="14" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="1.5"/>
+      <text x="18" y="28" font-size="15" font-weight="700" fill="#166534">MindSpider Crawler Cluster</text>
+      <!-- Social icons mockup -->
+      <g transform="translate(18, 42)">
+        <circle cx="12" cy="12" r="10" fill="#EF4444"/><text x="8" y="16" font-size="11" font-weight="bold" fill="#fff">微</text>
+        <circle cx="40" cy="12" r="10" fill="#06B6D4"/><text x="36" y="16" font-size="11" font-weight="bold" fill="#fff">抖</text>
+        <circle cx="68" cy="12" r="10" fill="#F97316"/><text x="64" y="16" font-size="11" font-weight="bold" fill="#fff">快</text>
+        <circle cx="96" cy="12" r="10" fill="#EC4899"/><text x="92" y="16" font-size="11" font-weight="bold" fill="#fff">红</text>
+        <text x="116" y="16" font-size="13" font-weight="600" fill="#64748B">... 10+ 社媒矩阵</text>
+      </g>
+      <text x="18" y="86" font-size="12" font-weight="500" fill="#64748B">全网多源图文与短视频跨模态采集</text>
+    </g>
+
+    <!-- Sub-box 2: SQLite WAL Database -->
+    <g transform="translate(20, 200)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="320" height="105" rx="14" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="1.5"/>
+      <g transform="translate(18, 16)">
+        <ellipse cx="12" cy="10" rx="10" ry="4" fill="#22C55E"/>
+        <path d="M 2 10 v 14 a 10 4 0 0 0 20 0 v -14" fill="none" stroke="#22C55E" stroke-width="2"/>
+      </g>
+      <text x="48" y="32" font-size="15" font-weight="700" fill="#166534">Native SQLite (WAL Mode)</text>
+      <text x="18" y="62" font-size="12" font-weight="500" fill="#334155">Node.js 22 built-in DatabaseSync</text>
+      <text x="18" y="82" font-size="11" font-weight="500" fill="#64748B">事务完整性 · 跨 Run 严格隔离 · 零装配</text>
+    </g>
+
+    <!-- Sub-box 3: EvidenceStore -->
+    <g transform="translate(20, 323)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="320" height="110" rx="14" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="1.5"/>
+      <text x="18" y="30" font-size="15" font-weight="700" fill="#166534">EvidenceStore (证据池)</text>
+      <rect x="18" y="44" width="284" height="26" rx="6" fill="#DCFCE7"/>
+      <text x="28" y="62" font-size="12" font-weight="600" fill="#15803D">SHA-256 内容指纹去重 · 溯源链</text>
+      <text x="18" y="93" font-size="11" font-weight="500" fill="#64748B">每个事实断言必须强绑定有效证据 ID</text>
+    </g>
+
+    <!-- Sub-box 4: BudgetLedger -->
+    <g transform="translate(20, 451)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="320" height="105" rx="14" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="1.5"/>
+      <text x="18" y="30" font-size="15" font-weight="700" fill="#166534">BudgetLedger (预算账本)</text>
+      <text x="18" y="60" font-size="12" font-weight="600" fill="#047857">原子配额预扣 · 终稿写作保底预算</text>
+      <text x="18" y="82" font-size="11" font-weight="500" fill="#64748B">调用流水审计 · 超额自动熔断保护</text>
+    </g>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- MIDDLE SECTION: 3 Subagents + Coordinator -->
+  <!-- ========================================== -->
+
+  <!-- Top Dispatch Flow Line (dashed) -->
+  <path d="M 400 178 H 1120" stroke="#3B82F6" stroke-width="2" stroke-dasharray="6,4" fill="none"/>
+  <path d="M 580 178 V 195" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="4,3" fill="none" marker-end="url(#arrowPurple)"/>
+  <path d="M 850 178 V 195" stroke="#0284C7" stroke-width="2" stroke-dasharray="4,3" fill="none" marker-end="url(#arrowCyan)"/>
+  <path d="M 1120 178 V 195" stroke="#D97706" stroke-width="2" stroke-dasharray="4,3" fill="none" marker-end="url(#arrowAmber)"/>
+
+  <!-- ================= COLUMN 1: FactAgent (Lavender) ================= -->
+  <!-- Header -->
+  <g transform="translate(460, 40)" text-anchor="middle">
+    <!-- Icon -->
+    <circle cx="120" cy="30" r="22" fill="#8B5CF6"/>
+    <path d="M 112 30 L 118 36 L 128 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="120" y="76" font-size="20" font-weight="700" fill="#0F172A">FactAgent</text>
+    <text x="120" y="96" font-size="12" font-weight="500" fill="#64748B">权威叙事与事实核查</text>
+  </g>
+
+  <!-- Step 1: Plan -->
+  <g transform="translate(460, 205)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#F3E8FF" stroke="#D8B4FE" stroke-width="1.8"/>
+    <text x="120" y="29" font-size="14" font-weight="600" fill="#6B21A8" text-anchor="middle">DAG Task Plan</text>
+  </g>
+  <path d="M 580 251 V 275" stroke="#8B5CF6" stroke-width="1.8" fill="none" marker-end="url(#arrowPurple)"/>
+
+  <!-- Step 2: Tools (Search & Read) -->
+  <g transform="translate(460, 275)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="50" rx="25" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.8"/>
+    <text x="120" y="24" font-size="13" font-weight="600" fill="#5B21B6" text-anchor="middle">Search &amp; Read Source</text>
+    <text x="120" y="40" font-size="11" font-weight="500" fill="#7C3AED" text-anchor="middle">权威通报与正文深度抓取</text>
+  </g>
+  <path d="M 580 325 V 350" stroke="#8B5CF6" stroke-width="1.8" fill="none" marker-end="url(#arrowPurple)"/>
+
+  <!-- Step 3: Verifier Component -->
+  <g transform="translate(460, 350)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="50" rx="25" fill="#F3E8FF" stroke="#D8B4FE" stroke-width="1.8"/>
+    <text x="120" y="24" font-size="13" font-weight="700" fill="#6B21A8" text-anchor="middle">VerifierComponent</text>
+    <text x="120" y="40" font-size="11" font-weight="500" fill="#7C3AED" text-anchor="middle">事实-证据一致性核验</text>
+  </g>
+  <path d="M 580 400 V 425" stroke="#8B5CF6" stroke-width="1.8" fill="none" marker-end="url(#arrowPurple)"/>
+
+  <!-- Step 4: Chunked Analysis Card -->
+  <g transform="translate(460, 425)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="70" rx="14" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.8"/>
+    <text x="120" y="30" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">Chunked Analysis</text>
+    <text x="120" y="50" font-size="12" font-weight="500" fill="#475569" text-anchor="middle">多维共存评估 · 矛盾判定</text>
+  </g>
+  <path d="M 580 495 V 525" stroke="#8B5CF6" stroke-width="1.8" fill="none" marker-end="url(#arrowPurple)"/>
+
+  <!-- ================= COLUMN 2: EvolutionAgent (Sky Blue) ================= -->
+  <!-- Header -->
+  <g transform="translate(730, 40)" text-anchor="middle">
+    <!-- Icon -->
+    <circle cx="120" cy="30" r="22" fill="#0284C7"/>
+    <path d="M 110 38 L 118 28 L 124 33 L 132 20 M 126 20 H 132 V 26" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="120" y="76" font-size="20" font-weight="700" fill="#0F172A">EvolutionAgent</text>
+    <text x="120" y="96" font-size="12" font-weight="500" fill="#64748B">传播演化与热度拐点</text>
+  </g>
+
+  <!-- Step 1: Plan -->
+  <g transform="translate(730, 205)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#E0F2FE" stroke="#BAE6FD" stroke-width="1.8"/>
+    <text x="120" y="29" font-size="14" font-weight="600" fill="#0369A1" text-anchor="middle">DAG Task Plan</text>
+  </g>
+  <path d="M 850 251 V 275" stroke="#0284C7" stroke-width="1.8" fill="none" marker-end="url(#arrowCyan)"/>
+
+  <!-- Step 2: Tools (Timeline & DB) -->
+  <g transform="translate(730, 275)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="50" rx="25" fill="#F0F9FF" stroke="#7DD3FC" stroke-width="1.8"/>
+    <text x="120" y="24" font-size="13" font-weight="600" fill="#0284C7" text-anchor="middle">Timeline &amp; Database</text>
+    <text x="120" y="40" font-size="11" font-weight="500" fill="#0369A1" text-anchor="middle">时序波次提取 · 社媒库检索</text>
+  </g>
+  <path d="M 850 325 V 350" stroke="#0284C7" stroke-width="1.8" fill="none" marker-end="url(#arrowCyan)"/>
+
+  <!-- Step 3: Turning Points -->
+  <g transform="translate(730, 350)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="50" rx="25" fill="#E0F2FE" stroke="#BAE6FD" stroke-width="1.8"/>
+    <text x="120" y="24" font-size="13" font-weight="700" fill="#0369A1" text-anchor="middle">Phase Transitions</text>
+    <text x="120" y="40" font-size="11" font-weight="500" fill="#0284C7" text-anchor="middle">周期拐点与次生舆情建模</text>
+  </g>
+  <path d="M 850 400 V 425" stroke="#0284C7" stroke-width="1.8" fill="none" marker-end="url(#arrowCyan)"/>
+
+  <!-- Step 4: Chunked Analysis Card -->
+  <g transform="translate(730, 425)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="70" rx="14" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.8"/>
+    <text x="120" y="30" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">Chunked Analysis</text>
+    <text x="120" y="50" font-size="12" font-weight="500" fill="#475569" text-anchor="middle">生命周期热度与扩散路径</text>
+  </g>
+  <path d="M 850 495 V 525" stroke="#0284C7" stroke-width="1.8" fill="none" marker-end="url(#arrowCyan)"/>
+
+  <!-- ================= COLUMN 3: FeedbackAgent (Warm Amber) ================= -->
+  <!-- Header -->
+  <g transform="translate(1000, 40)" text-anchor="middle">
+    <!-- Icon -->
+    <circle cx="120" cy="30" r="22" fill="#F59E0B"/>
+    <path d="M 110 26 H 130 V 36 H 116 L 112 40 Z" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linejoin="round"/>
+    <text x="120" y="76" font-size="20" font-weight="700" fill="#0F172A">FeedbackAgent</text>
+    <text x="120" y="96" font-size="12" font-weight="500" fill="#64748B">社媒评论与情绪画像</text>
+  </g>
+
+  <!-- Step 1: Plan -->
+  <g transform="translate(1000, 205)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1.8"/>
+    <text x="120" y="29" font-size="14" font-weight="600" fill="#B45309" text-anchor="middle">DAG Task Plan</text>
+  </g>
+  <path d="M 1120 251 V 275" stroke="#D97706" stroke-width="1.8" fill="none" marker-end="url(#arrowAmber)"/>
+
+  <!-- Step 2: Tools (Sampling & LoRA) -->
+  <g transform="translate(1000, 275)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="50" rx="25" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.8"/>
+    <text x="120" y="24" font-size="13" font-weight="600" fill="#B45309" text-anchor="middle">Comment Sampling Tool</text>
+    <text x="120" y="40" font-size="11" font-weight="500" fill="#D97706" text-anchor="middle">海量评论分层下钻与去重</text>
+  </g>
+  <path d="M 1120 325 V 350" stroke="#D97706" stroke-width="1.8" fill="none" marker-end="url(#arrowAmber)"/>
+
+  <!-- Step 3: BERT & Qwen LoRA -->
+  <g transform="translate(1000, 350)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="50" rx="25" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1.8"/>
+    <text x="120" y="24" font-size="13" font-weight="700" fill="#92400E" text-anchor="middle">BERT &amp; Qwen LoRA</text>
+    <text x="120" y="40" font-size="11" font-weight="500" fill="#B45309" text-anchor="middle">本地轻量模型情绪极化分类</text>
+  </g>
+  <path d="M 1120 400 V 425" stroke="#D97706" stroke-width="1.8" fill="none" marker-end="url(#arrowAmber)"/>
+
+  <!-- Step 4: Chunked Analysis Card -->
+  <g transform="translate(1000, 425)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="70" rx="14" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.8"/>
+    <text x="120" y="30" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">Chunked Analysis</text>
+    <text x="120" y="50" font-size="12" font-weight="500" fill="#475569" text-anchor="middle">群体诉求下钻 · 情绪极性画像</text>
+  </g>
+  <path d="M 1120 495 V 525" stroke="#D97706" stroke-width="1.8" fill="none" marker-end="url(#arrowAmber)"/>
+
+  <!-- Intermediate Interaction Cards (Replacing debate) -->
+  <g transform="translate(560, 520)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="220" height="34" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+    <text x="110" y="22" font-size="12" font-weight="600" fill="#475569" text-anchor="middle">Submit Claims &amp; Evidence</text>
+  </g>
+  <g transform="translate(920, 520)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="220" height="34" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+    <text x="110" y="22" font-size="12" font-weight="600" fill="#475569" text-anchor="middle">Directed Follow-up Directives</text>
+  </g>
+
+  <!-- ================= HOST BARRIER (Replacing Agent Forum) ================= -->
+  <g transform="translate(460, 575)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="780" height="105" rx="18" fill="#FFF7ED" stroke="#FDBA74" stroke-width="2.2"/>
+    
+    <!-- Left Icon / Host Badge -->
+    <rect x="24" y="20" width="65" height="65" rx="14" fill="#EA580C"/>
+    <path d="M 45 42 L 57 42 M 57 34 L 69 46 L 57 58 M 57 42 L 57 50" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Central Titles -->
+    <text x="105" y="48" font-size="22" font-weight="800" fill="#9A3412">ResearchCoordinator (会商同步屏障)</text>
+    <text x="105" y="74" font-size="14" font-weight="600" fill="#C2410C">HostAgent 统筹评审 · 定向追查 (Carry-Forward) · 第 3 轮强制收敛</text>
+
+    <!-- Right Host Tag -->
+    <g transform="translate(620, 32)">
+      <rect x="0" y="0" width="135" height="42" rx="21" fill="#FFFFFF" stroke="#F97316" stroke-width="1.5"/>
+      <circle cx="22" cy="21" r="10" fill="#EA580C"/>
+      <text x="22" y="25" font-size="11" font-weight="bold" fill="#fff" text-anchor="middle">H</text>
+      <text x="75" y="26" font-size="14" font-weight="700" font-style="italic" fill="#C2410C">HostAgent</text>
+    </g>
+  </g>
+
+  <!-- Bidirectional arrows to Barrier -->
+  <path d="M 580 554 V 575" stroke="#9A3412" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <path d="M 850 554 V 575" stroke="#9A3412" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <path d="M 1120 554 V 575" stroke="#9A3412" stroke-width="2" marker-end="url(#arrowAmber)"/>
+
+  <!-- Three Interim Submissions -->
+  <g transform="translate(460, 705)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#FEF08A" stroke="#FACC15" stroke-width="1.8"/>
+    <text x="120" y="28" font-size="13" font-weight="700" fill="#854D0E" text-anchor="middle">Fact Submission v1..v3</text>
+  </g>
+  <g transform="translate(730, 705)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#FEF08A" stroke="#FACC15" stroke-width="1.8"/>
+    <text x="120" y="28" font-size="13" font-weight="700" fill="#854D0E" text-anchor="middle">Evolution Submission v1..v3</text>
+  </g>
+  <g transform="translate(1000, 705)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#FEF08A" stroke="#FACC15" stroke-width="1.8"/>
+    <text x="120" y="28" font-size="13" font-weight="700" fill="#854D0E" text-anchor="middle">Feedback Submission v1..v3</text>
+  </g>
+
+  <!-- Arrows from Barrier to Submissions -->
+  <path d="M 580 680 V 705" stroke="#EAB308" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <path d="M 850 680 V 705" stroke="#EAB308" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <path d="M 1120 680 V 705" stroke="#EAB308" stroke-width="2" marker-end="url(#arrowAmber)"/>
+
+  <!-- Flow to Report Engine (from Barrier) -->
+  <path d="M 1240 628 H 1285" stroke="#E11D48" stroke-width="2.5" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowRose)"/>
+
+  <!-- ========================================== -->
+  <!-- RIGHT COLUMN: Report Pipeline (Pastel Pink) -->
+  <!-- ========================================== -->
+  <g transform="translate(1280, 40)">
+    <!-- Container -->
+    <rect x="0" y="0" width="350" height="805" rx="18" fill="#FFF1F2" stroke="#FDA4AF" stroke-width="2"/>
+
+    <!-- Header -->
+    <g transform="translate(175, 45)" text-anchor="middle">
+      <!-- Icon: Anthropic Asterisk Flower -->
+      <g transform="translate(0, 0)">
+        <circle cx="0" cy="0" r="22" fill="#E11D48"/>
+        <path d="M -8 -8 L 8 8 M 8 -8 L -8 8 M 0 -11 V 11 M -11 0 H 11" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+      </g>
+      <text x="0" y="44" font-size="22" font-weight="800" fill="#0F172A">ReportAgent</text>
+      <text x="0" y="66" font-size="13" font-weight="500" fill="#64748B">决策专报智能综合与装订</text>
+    </g>
+
+    <!-- Top: Final Report Card -->
+    <g transform="translate(25, 140)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="75" rx="14" fill="#FFFFFF" stroke="#0F172A" stroke-width="2"/>
+      <rect x="0" y="0" width="300" height="75" rx="14" fill="url(#cardGrid)"/>
+      <rect x="18" y="16" width="42" height="42" rx="10" fill="#3B82F6"/>
+      <!-- Doc icon -->
+      <path d="M 33 26 H 45 L 51 32 V 48 H 33 Z" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+      <text x="72" y="40" font-size="17" font-weight="800" fill="#0F172A">Final Decision Report</text>
+      <text x="72" y="58" font-size="12" font-weight="600" fill="#0284C7">DOCX · HTML · Markdown · PDF</text>
+    </g>
+
+    <!-- Pipeline steps (bottom up) -->
+    <!-- Arrow up to Final Report -->
+    <path d="M 175 240 V 222" stroke="#E11D48" stroke-width="2" marker-end="url(#arrowRose)"/>
+
+    <!-- Step 5: Binding & Rendering -->
+    <g transform="translate(25, 240)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="52" rx="26" fill="#F3E8FF" stroke="#C084FC" stroke-width="1.8"/>
+      <text x="150" y="32" font-size="14" font-weight="700" fill="#6B21A8" text-anchor="middle">Binding &amp; Pure-JS Rendering</text>
+    </g>
+    <path d="M 175 320 V 298" stroke="#E11D48" stroke-width="2" marker-end="url(#arrowRose)"/>
+
+    <!-- Step 4: IR Scoring & Validation -->
+    <g transform="translate(25, 320)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="58" rx="14" fill="#FFE4E6" stroke="#FB7185" stroke-width="1.8"/>
+      <text x="150" y="27" font-size="14" font-weight="700" fill="#9F1239" text-anchor="middle">Document IR Validation</text>
+      <text x="150" y="46" font-size="12" font-weight="500" fill="#BE123C" text-anchor="middle">JSON Schema 校验 · 图表语法自愈</text>
+    </g>
+    <path d="M 175 405 V 384" stroke="#E11D48" stroke-width="2" marker-end="url(#arrowRose)"/>
+
+    <!-- Step 3: FinalChecker Quality Gate -->
+    <g transform="translate(25, 405)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="65" rx="14" fill="#FFFFFF" stroke="#E11D48" stroke-width="2"/>
+      <text x="150" y="28" font-size="14" font-weight="800" fill="#BE123C" text-anchor="middle">FinalChecker Quality Gate</text>
+      <text x="150" y="48" font-size="12" font-weight="600" fill="#E11D48" text-anchor="middle">全量证据溯源校验 · 假大空口号拦截</text>
+    </g>
+    <path d="M 175 498 V 476" stroke="#E11D48" stroke-width="2" marker-end="url(#arrowRose)"/>
+
+    <!-- Step 2: Template & Word Budget -->
+    <g transform="translate(25, 498)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="52" rx="26" fill="#FFE4E6" stroke="#FDA4AF" stroke-width="1.8"/>
+      <text x="150" y="32" font-size="14" font-weight="700" fill="#9F1239" text-anchor="middle">Word Budget &amp; Outline Design</text>
+    </g>
+    <path d="M 175 578 V 556" stroke="#E11D48" stroke-width="2" marker-end="url(#arrowRose)"/>
+
+    <!-- Step 1: Select Template -->
+    <g transform="translate(25, 578)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="52" rx="26" fill="#FCE7F3" stroke="#F472B6" stroke-width="1.8"/>
+      <text x="150" y="32" font-size="14" font-weight="700" fill="#831843" text-anchor="middle">Select Report Template &amp; Themes</text>
+    </g>
+    <path d="M 175 660 V 636" stroke="#E11D48" stroke-width="2" marker-end="url(#arrowRose)"/>
+
+    <!-- Base: Aggregated Evidence Pool -->
+    <g transform="translate(25, 660)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="300" height="115" rx="16" fill="#FDF2F8" stroke="#F472B6" stroke-width="2"/>
+      <text x="150" y="36" font-size="16" font-weight="800" fill="#831843" text-anchor="middle">Aggregated Evidence Pool</text>
+      <text x="150" y="60" font-size="13" font-weight="600" fill="#9D174D" text-anchor="middle">buildReportInput</text>
+      <text x="150" y="82" font-size="11" font-weight="500" fill="#701A75" text-anchor="middle">终审三方成果聚合 · 隔离跨 Run 污染</text>
+      <text x="150" y="100" font-size="11" font-weight="500" fill="#701A75" text-anchor="middle">经核验的 Fact / Trend / Feedback</text>
+    </g>
+  </g>
+
+</svg>
