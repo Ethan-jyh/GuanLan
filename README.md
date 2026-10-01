@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌊 观澜 · GuanLan
+# 观澜 · GuanLan
 ### 全媒体多智能体态势研判与决策专报平台
 #### Multi-Agent Situation Awareness & Decision Reporting Platform
 
