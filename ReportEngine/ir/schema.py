@@ -51,6 +51,11 @@ ENGINE_AGENT_TITLES: Dict[str, str] = {
     "insight": "Insight Agent",
     "media": "Media Agent",
     "query": "Query Agent",
+    "authority": "Authority Agent",
+    "evolution": "Evolution Agent",
+    "feedback": "Feedback Agent",
+    "host": "Host Agent",
+    "report": "Report Agent",
 }
 
 # ====== Schema定义 ======
