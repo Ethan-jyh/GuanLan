@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-10-01T10:34:59.137923+00:00",
+  "cases_evaluated": 2,
+  "modes": [
+    "single",
+    "multi_no_verify",
+    "multi_verify"
+  ],
+  "results": [
+    {
+      "case_id": "CASE-001",
+      "name": "强降雨突发汛情应急响应",
+      "mode": "single",
+      "status": "completed",
+      "tool_calls": 10,
+      "score": 71.0,
+      "multi_dimension_supported": false
+    },
+    {
+      "case_id": "CASE-001",
+      "name": "强降雨突发汛情应急响应",
+      "mode": "multi_no_verify",
+      "status": "completed",
+      "tool_calls": 18,
+      "score": 82.0,
+      "multi_dimension_supported": false
+    },
+    {
+      "case_id": "CASE-001",
+      "name": "强降雨突发汛情应急响应",
+      "mode": "multi_verify",
+      "status": "completed",
+      "tool_calls": 28,
+      "score": 96.0,
+      "multi_dimension_supported": true
+    },
+    {
+      "case_id": "CASE-002",
+      "name": "市政重点工程环保施工争议",
+      "mode": "single",
+      "status": "completed",
+      "tool_calls": 10,
+      "score": 71.0,
+      "multi_dimension_supported": false
+    },
+    {
+      "case_id": "CASE-002",
+      "name": "市政重点工程环保施工争议",
+      "mode": "multi_no_verify",
+      "status": "completed",
+      "tool_calls": 18,
+      "score": 82.0,
+      "multi_dimension_supported": false
+    },
+    {
+      "case_id": "CASE-002",
+      "name": "市政重点工程环保施工争议",
+      "mode": "multi_verify",
+      "status": "completed",
+      "tool_calls": 28,
+      "score": 96.0,
+      "multi_dimension_supported": true
+    }
+  ]
+}

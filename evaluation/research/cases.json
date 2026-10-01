@@ -1,0 +1,44 @@
+[
+  {
+    "case_id": "CASE-001",
+    "name": "强降雨突发汛情应急响应",
+    "complexity": "simple",
+    "topic": "某特大城市强暴雨内涝防汛应急响应与公众关切研判",
+    "scope": {
+      "region": "华南",
+      "window": "24h",
+      "focus": ["官方响应级别", "路段积水热度", "公众被困求助"]
+    },
+    "expected_dimensions": {
+      "authority": "应急局防汛响应定调、伤亡核查",
+      "evolution": "降雨峰值后1-2小时内声量快速冲高并回落",
+      "feedback": "网民集中在局部下凹桥积水与地铁延误退票诉求"
+    },
+    "expected_verifications": [
+      { "dimension": "official_doc", "status": "supported" },
+      { "dimension": "metrics", "status": "supported" },
+      { "dimension": "comments", "status": "supported" }
+    ]
+  },
+  {
+    "case_id": "CASE-002",
+    "name": "市政重点工程环保施工争议",
+    "complexity": "complex",
+    "topic": "某区市政环线高架工程夜间施工噪音与扬尘扰民引发的舆论发酵研判",
+    "scope": {
+      "region": "华东",
+      "window": "7d",
+      "focus": ["城建与住建部门夜间施工许可批复", "多平台发帖与投诉工单走势", "沿线居民噪音治理与补偿诉求"]
+    },
+    "expected_dimensions": {
+      "authority": "官方出示错峰施工批复与环保检测合格凭证",
+      "evolution": "工作日晚间持续出现声量次峰，长周期未自然消退",
+      "feedback": "沿线小区居民提出安装隔音屏障与限制重型车辆作业时段的诉求"
+    },
+    "expected_verifications": [
+      { "dimension": "official_doc", "status": "supported" },
+      { "dimension": "metrics", "status": "supported" },
+      { "dimension": "comments", "status": "supported" }
+    ]
+  }
+]

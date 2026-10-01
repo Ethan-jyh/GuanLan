@@ -184,12 +184,13 @@ class ReviewManager:
 
             # 逆向寻找最近轮次完成的成果
             for r in range(round_num, 0, -1):
-                sub = self.submission_mgr.get_latest_submission_for_role(run_id, role, r)
-                if sub:
-                    effective[role] = sub
+                sub_data = self.submission_mgr.get_latest_submission_for_role(run_id, role, r)
+                if sub_data:
+                    effective[role] = ResearchResult.model_validate(sub_data)
                     break
 
         return effective
+
 
     def check_release_gate(self, run_id: str) -> Tuple[bool, str]:
         """
