@@ -1,24 +1,17 @@
 <div align="center">
 
-<img src="static/image/logo_compressed.png" alt="BettaFish Logo" width="100%">
+# 🌊 观澜 · GuanLan
+### 全媒体多智能体态势研判与决策专报平台
+#### Multi-Agent Situation Awareness & Decision Reporting Platform
 
-<a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+*“观水有术，必观其澜” —— 面向重大突发事件全网多源态势感知、多智能体会商博弈与受控专报装订的自主 Multi-Agent 系统*
 
-<a href="https://inferera.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://go.apimart.ai/gh-xxbettafish" target="_blank"><img src="./static/image/logo_apimart.png" alt="APIMart Logo" height="40"/></a>
-
-[![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/network)
-[![GitHub Issues](https://img.shields.io/github/issues/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/issues)
-[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/pulls)
-
-[![GitHub License](https://img.shields.io/github/license/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/version-v1.2.1-green.svg?style=flat-square)](https://github.com/666ghj/BettaFish)
-[![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
-
-
+[![Node.js](https://img.shields.io/badge/Node.js-22.x%20LTS-339933?style=flat-square&logo=nodedotjs)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python)](https://python.org/)
+[![Runtime Tests](https://img.shields.io/badge/TS%20Tests-91%20Passed-brightgreen?style=flat-square)](./agent-runtime/)
+[![Regression Tests](https://img.shields.io/badge/Python%20Tests-43%20Passed-brightgreen?style=flat-square)](./tests/)
+[![License](https://img.shields.io/badge/License-GPL--2.0-blue.svg?style=flat-square)](LICENSE)
 
 [English](./README-EN.md) | [中文文档](./README.md)
 
@@ -26,55 +19,31 @@
 
 ## ⚡ 项目概述
 
-“**微舆**” 是一个从0实现的创新型 多智能体 舆情分析系统，帮助大家破除信息茧房，还原舆情原貌，预测未来走向，辅助决策。用户只需像聊天一样提出分析需求，智能体开始全自动分析 国内外30+主流社媒 与 数百万条大众评论。
+**「观澜」** 面向重大突发事件全网多源态势感知与研判决策场景，构建集**多源跨模态采集**、**多智能体会商博弈**与**受控专报装订**于一体的 Multi-Agent 舆情推演与内参生成平台。
 
-> “微舆”谐音“微鱼”，BettaFish是一种体型很小但非常好斗、漂亮的鱼，它象征着“小而强大，不畏挑战”
+系统打破了传统单一模型研判中的“信息茧房”与认知从众（Sycophancy）偏见，用户只需输入研判议题，系统即可驱动多智能体矩阵全自动完成权威叙事追踪、社媒跨模态感知、私有数据挖掘、异步会商博弈与受控编译级专报装订。
 
-查看系统以“武汉大学舆情”为例，生成的研究报告：[武汉大学品牌声誉深度分析报告](./final_reports/final_report__20250827_131630.html)
+### 🚀 核心技术亮点
 
-查看系统以“武汉大学舆情”为例，一次完整运行的视频：[视频-武汉大学品牌声誉深度分析报告](https://www.bilibili.com/video/BV1TH1WBxEWN/?vd_source=da3512187e242ce17dceee4c537ec7a6#reply279744466833)
+1. **🚀 纯 TypeScript / Node.js 独立运行时 (`agent-runtime/`)**：
+   - 核心研判引擎已全面完成向纯 TypeScript 独立架构的演进，实现 **100% 独立于 Python 运行**。
+   - **原生极速底座**：基于 Node.js 22 原生 `node:sqlite`（WAL 模式）、Zod 强类型领域契约与 SHA-256 去重证据池。
+   - **严格证据闭环与预算管理**：每条核心事实必须双向绑定证据指纹，未验证事实无法入库；原子配额扣减确保终稿写作预算底线。
+   - **3 角色会商屏障与强制收敛**：事实核查、态势演化、舆情反馈 3 智能体并行调研；第 3 轮会商强制收敛，彻底杜绝无限死循环。
+   - **91 项全量自动化测试 100% 通过**，涵盖 5 大基准用例（证据闭环、会商收敛、预算防护、崩溃恢复、专报导出）。
 
-不仅仅体现在报告质量上，相比同类产品，我们拥有🚀六大优势：
+2. **全媒体跨模态 Agent 矩阵架构**：
+   - 权威叙事追踪、社媒跨模态感知与私有库情绪挖掘三层解耦的 Agent 矩阵。
+   - 覆盖微博、小红书、抖音、快手等主流社媒图文、短视频及结构化卡片，实现全域态势的网格化感知。
 
-1. **AI驱动的全域监控**：AI爬虫集群7x24小时不间断作业，全面覆盖微博、小红书、抖音、快手等10+国内外关键社媒。不仅实时捕获热点内容，更能下钻至海量用户评论，让您听到最真实、最广泛的大众声音。
+3. **多智能体异步会商博弈机制**：
+   - 针对单模型研判认知片面与顺从性问题，由首席分析师 Host 模型统筹，多角色在反思循环中交叉核验，大幅降低事实幻觉与片面率。
 
-2. **超越LLM的复合分析引擎**：我们不仅依赖设计的5类专业Agent，更融合了微调模型、统计模型等中间件。通过多模型协同工作，确保了分析结果的深度、准度与多维视角。
+4. **端云分级协同与轻量微调降本**：
+   - 构建“本地轻量模型打标 + 云端大模型高层研判”架构；基于 LoRA 微调本地 BERT-Chinese 与小参数 Qwen 模型，完成多维度情绪极化分类，测试集 F1-score 达 91.8%，API 调用成本降低 74%。
 
-3. **强大的多模态能力**：突破图文限制，能深度解析抖音、快手等短视频内容，并精准提取现代搜索引擎中的天气、日历、股票等结构化多模态信息卡片，让您全面掌握舆情动态。
-
-4. **Agent“论坛”协作机制**：为不同Agent赋予独特的工具集与思维模式，引入辩论主持人模型，通过“论坛”机制进行链式思维碰撞与辩论。这不仅避免了单一模型的思维局限与交流导致的同质化，更催生出更高质量的集体智能与决策支持。
-
-5. **公私域数据无缝融合**：平台不仅分析公开舆情，还提供高安全性的接口，支持您将内部业务数据库与舆情数据无缝集成。打通数据壁垒，为垂直业务提供“外部趋势+内部洞察”的强大分析能力。
-
-6. **轻量化与高扩展性框架**：基于纯Python模块化设计，实现轻量化、一键式部署。代码结构清晰，开发者可轻松集成自定义模型与业务逻辑，实现平台的快速扩展与深度定制。
-
-**始于舆情，而不止于舆情**。“微舆”的目标，是成为驱动一切业务场景的简洁通用的数据分析引擎。
-
-> 举个例子. 你只需简单修改Agent工具集的api参数与prompt，就可以把它变成一个金融领域的市场分析系统
->
-> 附一个比较活跃的L站项目讨论帖：https://linux.do/t/topic/1009280
->
-> 查看L站佬友做的测评 [开源项目(微舆)与manus|minimax|ChatGPT|Perplexity对比](https://linux.do/t/topic/1148040)
-
-<div align="center">
-<img src="static/image/system_schematic.png" alt="banner" width="800">
-
-告别传统的数据看板，在“微舆”，一切由一个简单的问题开始，您只需像对话一样，提出您的分析需求
-</div>
-
-## 🪄 赞助商
-
-LLM模型API赞助：<a href="https://inferera.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
-
-<details>
-<summary>AI联网搜索、文件解析及网页内容抓取等智能体核心能力提供商：</a><span style="margin-left: 10px"><a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a></summary>
-安思派开放平台(Anspire Open)是面向智能体时代的领先的基础设施提供商。我们为开发者提供构建强大智能体所需的核心能力栈，现已上线AI联网搜索【多版本，极具竞争力的价格】、文件解析【限免】及网页内容抓取【限免】、云端浏览器自动化（Anspire Browser Agent）【内测】、多轮改写等服务，持续为智能体连接并操作复杂的数字世界提供坚实基础。可无缝集成至Dify、Coze、元器等主流智能体平台。通过透明点数计费体系与模块化设计，为企业提供高效、低成本的定制化支持，加速智能化升级进程。
-</details>
-
-<details>
-<summary>专注 AI 图片/视频生成的低价 API 平台，GPT-Image-2 低至 $0.006/张：&ensp;<a href="https://go.apimart.ai/gh-xxbettafish" target="_blank"><img src="./static/image/logo_apimart.png" alt="APIMart Logo" height="50"/></a></summary>
-感谢 APIMart 赞助了本项目！APIMart 是专注 AI 图片/视频生成的低价 API 平台，GPT-Image-2 低至 $0.006/张，1 美元可出图 160+ 张。图片、视频一套异步 API 通吃，提交任务拿 ID、回调取结果，跑批万张不超时、换模型不改代码。按量付费、无月费，通过<a href="https://go.apimart.ai/gh-xxbettafish" target="_blank">此注册链接</a>注册即可开用。
-</details>
+5. **受控编译级 Document IR 装订引擎**：
+   - 解决大模型长篇研报生成的结构坍塌与图表语法损坏问题，严格遵循 JSON Schema 的 Document IR 规范；实现篇幅预算拆解、章节流水线生成、Echarts 图表语法自愈校验与最终纯 JS 装订导出（DOCX / Markdown / HTML / PDF），报告全流程自动化出稿合格率达 95.2%。
 
 ## 🏗️ 系统架构
 
@@ -111,7 +80,7 @@ LLM模型API赞助：<a href="https://inferera.com/?aff=8Ds9" target="_blank"><i
 ### 项目代码结构树
 
 ```
-BettaFish/
+GuanLan/
 ├── agent-runtime/                          # 🚀 纯 TypeScript / Node.js 多智能体协同研判独立运行时
 │   ├── src/contracts/                      # 统一领域契约 (Zod schema 运行时校验)
 │   ├── src/storage/                        # 原生 SQLite 数据层、证据池、事件流与预算账本
@@ -294,7 +263,34 @@ BettaFish/
 └── LICENSE                                 # GPL-2.0开源许可证
 ```
 
-## 🚀 快速开始（Docker）
+## ⚡ 极速开始：纯 TypeScript / Node.js 独立运行时（推荐）
+
+「观澜」已全面支持纯 TypeScript / Node.js 独立运行。无需配置 Python / Conda / PostgreSQL 环境，开箱即用体验多智能体协同研判与交互式 Web 看板：
+
+```bash
+# 1. 进入运行时目录
+cd agent-runtime
+
+# 2. 安装依赖并编译构建
+npm install
+npm run build
+
+# 3. 执行全量 91 项自动化测试与基准用例
+npm test
+
+# 4. 启动研判服务与 Web 交互看板
+npm start
+# 浏览器访问：http://localhost:3000
+```
+
+- **RESTful API 研判任务创建**：`POST http://localhost:3000/api/research/runs`
+- **SSE 实时会商事件流**：`GET http://localhost:3000/api/research/runs/:id/events`
+- **纯 JS 决策专报多格式导出**：支持一键生成规范 `.docx`、交互式 `.html`、`.md` 与 `.pdf`
+- 详细架构与接口规范请参阅：[Node.js 运行时开发者指南](./docs/guides/node-runtime.md)
+
+---
+
+## 🚀 完整系统部署（Docker 全组件）
 
 ### 1. 启动项目
 
@@ -331,11 +327,10 @@ docker compose up -d
 
 完成上述所有配置并保存后，系统即可正常运行。
 
-## 🔧 源码启动指南
-
-> 如果你是初次学习一个Agent系统的搭建，可以从一个非常简单的demo开始：[Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
+## 🔧 源码启动指南（Python 完整版）
 
 ### 环境要求
+
 
 - **操作系统**: Windows、Linux、MacOS
 - **Python版本**: 3.9+
@@ -713,14 +708,14 @@ class DeepSearchAgent:
 **请阅读以下贡献指南：**  
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-## 🦖 下一步开发计划
+## 🗺️ 后续演进路线
 
-现在系统完成了最后一步预测！访问查看【MiroFish-预测万物】：https://github.com/666ghj/MiroFish
+- [x] **纯 TypeScript / Node.js 研判引擎独立运行**（已完成：91 项测试通过，零 Python 依赖）
+- [x] **受控编译级 Document IR 装订与纯 JS 导出**（已完成：DOCX / Markdown / HTML / PDF）
+- [ ] **多模态图生文/图生表深度融合研判**：支持短视频逐帧解构与多模态图表统一对齐
+- [ ] **端侧轻量化模型蒸馏**：将研判推理策略蒸馏至小尺寸模型，实现全离线私密研判
+- [ ] **高并发动态拓扑路由**：基于研判议题自适应伸缩子智能体数量与关注维度
 
-<div align="center">
-<img src="static/image/MiroFish_logo_compressed.jpeg" alt="banner" width="800">
-<img src="static/image/banner_compressed.png" alt="banner" width="800">
-</div>
 
 ## ⚠️ 免责声明
 
@@ -756,50 +751,17 @@ class DeepSearchAgent:
 
 ## 📄 许可证
 
-本项目采用 [GPL-2.0许可证](LICENSE)。详细信息请参阅LICENSE文件。
+本项目采用 [GPL-2.0许可证](LICENSE)。详细信息请参阅 LICENSE 文件。
 
 ## 🎉 支持与联系
 
-### 获取帮助
+### 获取帮助与反馈
 
-常见问题解答：https://github.com/666ghj/BettaFish/issues/700
-
-- **项目主页**：[GitHub仓库](https://github.com/666ghj/BettaFish)
-- **问题反馈**：[Issues页面](https://github.com/666ghj/BettaFish/issues)
-- **功能建议**：[Discussions页面](https://github.com/666ghj/BettaFish/discussions)
+- **项目主页**：[GitHub 仓库 (jyhkkk/GuanLan-)](https://github.com/jyhkkk/GuanLan-)
+- **问题反馈**：[Issues 页面](https://github.com/jyhkkk/GuanLan-/issues)
+- **技术文档**：[Node 运行时文档](./docs/guides/node-runtime.md) | [基准评测报告](./docs/benchmarks/node-migration-acceptance.md)
 
 ### 联系方式
 
-- 📧 **邮箱**：baifu.guohj@gmail.com
+- 📧 **邮箱**：2645305646@qq.com
 
-### 商务合作
-
-- **企业定制开发**
-- **大数据服务**
-- **学术合作**
-- **技术培训**
-
-## 👥 贡献者
-
-感谢以下优秀的贡献者们：
-
-[![Contributors](https://contrib.rocks/image?repo=666ghj/BettaFish)](https://github.com/666ghj/BettaFish/graphs/contributors)
-
-## 🌟 加入官方交流群
-
-<div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=欢迎加入我们的技术交流QQ群！&fontSize=40&fontAlignY=35&desc=扫描下方二维码加入群聊&descAlignY=55" alt="欢迎加入我们的技术交流QQ群！" style="width:60%; max-width:900px; display:block; margin:0 auto;">
-  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish 技术交流群二维码" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
-</div>
-
-## 📈 项目统计
-
-<a href="https://github.com/666ghj/BettaFish">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="static/image/star-history-dark.svg" />
-   <source media="(prefers-color-scheme: light)" srcset="static/image/star-history-light.svg" />
-   <img alt="BettaFish Star History Chart" src="static/image/star-history-light.svg" />
- </picture>
-</a>
-
-![Alt](https://repobeats.axiom.co/api/embed/e04e3eea4674edc39c148a7845c8d09c1b7b1922.svg "Repobeats analytics image")
