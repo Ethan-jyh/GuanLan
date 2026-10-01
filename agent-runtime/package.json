@@ -1,0 +1,20 @@
+{
+  "name": "bettafish-agent-runtime",
+  "version": "0.1.0",
+  "description": "Pi agent runtime for BettaFish multi-agent research architecture",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/tests/**/*.test.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.99.2",
+    "@earendil-works/pi-ai": "0.99.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.3"
+  },
+  "license": "MIT"
+}
