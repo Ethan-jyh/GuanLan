@@ -100,6 +100,21 @@ class ResearchStorage:
                     created_at TEXT NOT NULL
                 );
             """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    review_id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    round INTEGER NOT NULL,
+                    decision TEXT NOT NULL,
+                    rationale TEXT NOT NULL,
+                    directives_json TEXT NOT NULL,
+                    unresolved_issues_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(run_id, round)
+                );
+            """)
             conn.commit()
 
     # ---------------- 预算事务操作 ----------------
@@ -212,3 +227,56 @@ class ResearchStorage:
                 "reserved": row["total_reserved"],
                 "committed": row["total_used"] + row["total_reserved"],
             }
+
+    # ---------------- 评审记录操作 ----------------
+    def save_review_decision(self, run_id: str, decision: Dict[str, Any]) -> str:
+        """保存 HOST 评审决定（幂等，若存在则忽略或返回既有ID）"""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        review_id = f"rev-{run_id}-r{decision['round']}"
+
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO reviews (
+                    review_id, run_id, task_id, round, decision, rationale,
+                    directives_json, unresolved_issues_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    review_id,
+                    run_id,
+                    decision.get("task_id", f"task-host-r{decision['round']}"),
+                    decision["round"],
+                    decision["decision"],
+                    decision["rationale"],
+                    json.dumps(decision.get("directives", []), ensure_ascii=False),
+                    json.dumps(decision.get("unresolved_issues", []), ensure_ascii=False),
+                    now_iso,
+                ),
+            )
+            conn.commit()
+        return review_id
+
+    def get_review_decision(self, run_id: str, round_num: int) -> Optional[Dict[str, Any]]:
+        """获取指定运行在特定轮次的 HOST 评审决定"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM reviews WHERE run_id = ? AND round = ?",
+                (run_id, round_num),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "review_id": row["review_id"],
+                "run_id": row["run_id"],
+                "task_id": row["task_id"],
+                "round": row["round"],
+                "decision": row["decision"],
+                "rationale": row["rationale"],
+                "directives": json.loads(row["directives_json"]),
+                "unresolved_issues": json.loads(row["unresolved_issues_json"]),
+                "created_at": row["created_at"],
+            }
+
