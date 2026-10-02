@@ -30,7 +30,7 @@ export const TaskSchema = z.object({
     message: 'Invalid role',
   }),
   round: z.number().int().min(1).max(3).default(1),
-  generation: z.number().int().min(1).default(1),
+  generation: z.number().int().min(1).max(3).default(1),
   question: z.string(),
   scope: z.record(z.string(), z.unknown()).default({}),
   completion_criteria: z.string().default(''),

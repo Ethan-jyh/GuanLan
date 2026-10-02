@@ -13,6 +13,7 @@ import {
   ResearchOutcomeSchema,
   HostInboxEventSchema,
   ReleaseRequestSchema,
+  ResearchSubagentRoleSchema,
   parseResearchJobParams,
   parseTaskReceipt,
   parseResearchOutcome,
@@ -151,6 +152,30 @@ describe('Task 1: Research Job, Receipt, Outcome & Host Event Contracts', () => 
       };
       assert.throws(() => parseTaskReceipt(invalidPending));
     });
+
+    it('should default result_pending to true in accepted receipt if omitted', () => {
+      const omittedPending = {
+        status: 'accepted',
+        task_id: 'task-auth-001',
+        attempt_id: 'attempt-1',
+        role: 'authority',
+      };
+      const parsed = parseTaskReceipt(omittedPending);
+      assert.equal(parsed.status, 'accepted');
+      if (parsed.status === 'accepted') {
+        assert.equal(parsed.result_pending, true);
+      }
+    });
+
+    it('should reject non-subagent role in accepted receipt', () => {
+      const invalidRole = {
+        status: 'accepted',
+        task_id: 'task-001',
+        attempt_id: 'attempt-1',
+        role: ResearchRole.Host,
+      };
+      assert.throws(() => parseTaskReceipt(invalidRole), /role/i);
+    });
   });
 
   describe('ResearchOutcomeSchema', () => {
@@ -238,6 +263,21 @@ describe('Task 1: Research Job, Receipt, Outcome & Host Event Contracts', () => 
 
       assert.throws(() => parseResearchOutcome(invalid));
     });
+
+    it('should reject non-subagent role in outcome', () => {
+      const invalidRole = {
+        run_id: 'run-001',
+        task_id: 'task-001',
+        attempt_id: 'att-01',
+        execution_version: 1,
+        role: ResearchRole.Host,
+        status: 'succeeded',
+        usage: { tool_attempts: 1 },
+        completed_at: new Date().toISOString(),
+      };
+
+      assert.throws(() => parseResearchOutcome(invalidRole), /role/i);
+    });
   });
 
   describe('HostInboxEventSchema', () => {
@@ -290,6 +330,19 @@ describe('Task 1: Research Job, Receipt, Outcome & Host Event Contracts', () => 
           event_type: 'research_outcome',
         })
       );
+    });
+
+    it('should validate event with optional event_seq sequence number', () => {
+      const evt = {
+        event_id: 'evt-seq-001',
+        run_id: 'run-001',
+        event_seq: 42,
+        event_type: 'research_outcome' as const,
+        payload: { summary: 'finished' },
+      };
+
+      const parsed = parseHostInboxEvent(evt);
+      assert.equal(parsed.event_seq, 42);
     });
   });
 
@@ -376,6 +429,27 @@ describe('Task 1: Research Job, Receipt, Outcome & Host Event Contracts', () => 
       assert.equal(parsed.required_for_report, true);
       assert.deepEqual(parsed.dependencies, []);
       assert.equal(parsed.superseded_by, undefined);
+    });
+
+    it('should enforce generation bound between 1 and 3 (generation cap <= 3)', () => {
+      const baseTask = {
+        task_id: 'task-gen-bound',
+        run_id: 'run-001',
+        role: ResearchRole.Authority,
+        question: '测试问题',
+        status: TaskStatus.Queued,
+        created_at: new Date().toISOString(),
+      };
+
+      // Generation = 3 should pass
+      const validG3 = parseTask({ ...baseTask, generation: 3 });
+      assert.equal(validG3.generation, 3);
+
+      // Generation = 4 should fail (exceeds cap of 3)
+      assert.throws(() => parseTask({ ...baseTask, generation: 4 }), /generation/i);
+
+      // Generation = 0 should fail (< 1)
+      assert.throws(() => parseTask({ ...baseTask, generation: 0 }), /generation/i);
     });
   });
 });

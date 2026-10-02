@@ -2,6 +2,17 @@ import { z } from 'zod';
 import { ResearchRole } from './task.js';
 
 /**
+ * 实际执行研究作业的子 Agent 角色枚举 (authority, evolution, feedback)
+ * 对应设计文档 5.2 节所规定的子 Agent 角色范围
+ */
+export const ResearchSubagentRoleSchema = z.enum([
+  ResearchRole.Authority,
+  ResearchRole.Evolution,
+  ResearchRole.Feedback,
+]);
+export type ResearchSubagentRole = z.infer<typeof ResearchSubagentRoleSchema>;
+
+/**
  * HOST 派发独立研究作业的参数契约
  */
 export const ResearchJobParamsSchema = z.object({
@@ -30,8 +41,8 @@ export const AcceptedTaskReceiptSchema = z.object({
   status: z.literal('accepted'),
   task_id: z.string().min(1, 'task_id is required'),
   attempt_id: z.string().min(1, 'attempt_id is required'),
-  role: z.nativeEnum(ResearchRole),
-  result_pending: z.literal(true),
+  role: ResearchSubagentRoleSchema,
+  result_pending: z.literal(true).default(true),
   message: z.string().optional(),
 });
 export type AcceptedTaskReceipt = z.infer<typeof AcceptedTaskReceiptSchema>;
@@ -40,7 +51,7 @@ export const RejectedTaskReceiptSchema = z.object({
   status: z.literal('rejected'),
   task_id: z.string().optional(),
   attempt_id: z.string().optional(),
-  role: z.nativeEnum(ResearchRole).optional(),
+  role: ResearchSubagentRoleSchema.optional(),
   result_pending: z.literal(false).default(false),
   reason: z.string().min(1, 'reason is required'),
 });
@@ -100,7 +111,7 @@ export const ResearchOutcomeSchema = z.object({
   task_id: z.string().min(1, 'task_id is required'),
   attempt_id: z.string().min(1, 'attempt_id is required'),
   execution_version: z.number().int().min(1, 'execution_version must be >= 1'),
-  role: z.nativeEnum(ResearchRole),
+  role: ResearchSubagentRoleSchema,
   status: ResearchOutcomeStatusSchema,
   result_ref: z.string().optional(),
   summary: z.string().optional(),
@@ -136,6 +147,7 @@ export type HostInboxEventType = z.infer<typeof HostInboxEventTypeSchema>;
 export const HostInboxEventSchema = z.object({
   event_id: z.string().min(1, 'event_id is required'),
   run_id: z.string().min(1, 'run_id is required'),
+  event_seq: z.number().int().optional(),
   task_id: z.string().optional(),
   event_type: HostInboxEventTypeSchema,
   payload: z.record(z.string(), z.unknown()).default({}),
