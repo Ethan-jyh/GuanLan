@@ -1,4 +1,5 @@
 import { ResearchDatabase } from './database.js';
+import { OutboxRepository, OutboxEventRecord } from './repositories.js';
 
 export interface ResearchEventRecord {
   event_id: number;
@@ -10,7 +11,11 @@ export interface ResearchEventRecord {
 }
 
 export class EventStore {
-  constructor(private db: ResearchDatabase) {}
+  private outboxRepo: OutboxRepository;
+
+  constructor(private db: ResearchDatabase) {
+    this.outboxRepo = new OutboxRepository(db);
+  }
 
   public publishEvent(
     run_id: string,
@@ -55,5 +60,23 @@ export class EventStore {
       payload: JSON.parse(r.payload_json),
       created_at: r.created_at,
     }));
+  }
+
+  public publishOutboxEvent(
+    run_id: string,
+    event_type: string,
+    payload: Record<string, unknown>,
+    task_id?: string
+  ): number {
+    return this.outboxRepo.appendEvent({
+      run_id,
+      task_id,
+      event_type,
+      payload,
+    });
+  }
+
+  public getOutboxEvents(run_id?: string, limit?: number): OutboxEventRecord[] {
+    return this.outboxRepo.getUndeliveredEvents(run_id, limit);
   }
 }
