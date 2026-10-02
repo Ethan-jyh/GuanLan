@@ -25,6 +25,8 @@ import {
   type AcceptedTaskReceipt,
 } from '../src/contracts/research.js';
 import { createScriptedStreamFn } from '../src/runtime/pi-adapter.js';
+import { createResearcherAgent } from '../src/agents/researcher.js';
+import { AUTHORITY_SYSTEM_PROMPT } from '../src/prompts/authority.js';
 
 describe('Task 3: Independent Research Tools & Async Background Worker Engine', () => {
   let db: ResearchDatabase;
@@ -627,4 +629,227 @@ describe('Task 3: Independent Research Tools & Async Background Worker Engine', 
       assert.ok(Array.isArray(res.receipts));
     });
   });
+
+  describe('5. Robustness & Review Findings', () => {
+    it('should mark cancelled (not partial) when agent run resolves normally upon abort', async () => {
+      const pool = new ResearchWorkerPool({
+        db,
+        maxConcurrency: 3,
+        agentFactory: (context: any) => {
+          return {
+            run: async () => {
+              // Wait until abort signal fires, then resolve normally (like Pi's waitForIdle)
+              return new Promise<any>((resolve) => {
+                context.signal.addEventListener('abort', () => {
+                  resolve({ finalText: 'stopped', messages: [], events: [] });
+                });
+              });
+            },
+            abort: () => {},
+            state: {} as any,
+          };
+        },
+      });
+
+      const receipt = await pool.enqueueTask(
+        'authority',
+        {
+          question: '查证取消行为',
+          completion_criteria: '测试取消不落入partial',
+          requested_budget_units: 10,
+          required_for_report: true,
+          scope: {},
+          dependencies: [],
+        },
+        { run_id: testRunId }
+      );
+
+      // Cancel the task while it is running
+      pool.cancelTask(receipt.task_id, 'Manual cancellation');
+
+      await pool.waitForAll();
+
+      const attempt = attemptRepo.getAttempt(receipt.attempt_id);
+      assert.ok(attempt);
+      assert.equal(attempt.status, 'cancelled');
+
+      const result = resultRepo.getLatestResult(testRunId, receipt.task_id);
+      assert.ok(result);
+      assert.equal(result.status, 'cancelled');
+    });
+
+    it('should prevent overwriting already submitted results when error occurs after submission', async () => {
+      const pool = new ResearchWorkerPool({
+        db,
+        maxConcurrency: 3,
+        agentFactory: (context: any) => {
+          return {
+            run: async () => {
+              // 1. Successfully submit findings
+              await context.submitTool.execute({
+                findings: {
+                  role: 'authority',
+                  round: 1,
+                  claims: [{ claim_id: 'C1', statement: '通报已核验', evidence_ids: ['E1'] }],
+                  evidence_pool: [{ evidence_id: 'E1', source_type: 'official', excerpt: '通报内容' }],
+                },
+              });
+
+              // 2. Throws an error after successful submission during teardown
+              throw new Error('Teardown socket reset error after submit');
+            },
+            abort: () => {},
+            state: {} as any,
+          };
+        },
+      });
+
+      const receipt = await pool.enqueueTask(
+        'authority',
+        {
+          question: '测试提交后异常保护',
+          completion_criteria: '成果不被篡改',
+          requested_budget_units: 10,
+          required_for_report: true,
+          scope: {},
+          dependencies: [],
+        },
+        { run_id: testRunId }
+      );
+
+      await pool.waitForAll();
+
+      // Attempt and Result must remain 'succeeded' and NOT overwritten by 'failed'
+      const attempt = attemptRepo.getAttempt(receipt.attempt_id);
+      assert.ok(attempt);
+      assert.equal(attempt.status, 'succeeded');
+
+      const result = resultRepo.getLatestResult(testRunId, receipt.task_id);
+      assert.ok(result);
+      assert.equal(result.status, 'succeeded');
+    });
+
+    it('should track initial attempt status as queued and transition to running on start', async () => {
+      let resolveStart: () => void = () => {};
+      const startPromise = new Promise<void>((r) => {
+        resolveStart = r;
+      });
+
+      const pool = new ResearchWorkerPool({
+        db,
+        maxConcurrency: 1,
+        agentFactory: (context: any) => {
+          return {
+            run: async () => {
+              await startPromise;
+              await context.submitTool.execute({
+                findings: {
+                  role: context.role,
+                  round: 1,
+                  claims: [],
+                  evidence_pool: [],
+                },
+              });
+              return { finalText: 'done', messages: [], events: [] };
+            },
+            abort: () => {},
+            state: {} as any,
+          };
+        },
+      });
+
+      // Task 1: will run and hold the single slot
+      const r1 = await pool.enqueueTask(
+        'authority',
+        {
+          question: '槽位占有任务',
+          completion_criteria: '占位',
+          requested_budget_units: 5,
+          required_for_report: true,
+          scope: {},
+          dependencies: [],
+        },
+        { run_id: testRunId }
+      );
+
+      // Task 2: will be queued because maxConcurrency is 1
+      const r2 = await pool.enqueueTask(
+        'evolution',
+        {
+          question: '排队等待任务',
+          completion_criteria: '验证queued状态',
+          requested_budget_units: 5,
+          required_for_report: true,
+          scope: {},
+          dependencies: [],
+        },
+        { run_id: testRunId }
+      );
+
+      // Verify Task 2 attempt is initially 'queued' in DB
+      const attempt2 = attemptRepo.getAttempt(r2.attempt_id);
+      assert.ok(attempt2);
+      assert.equal(attempt2.status, 'queued');
+
+      // Release Task 1
+      resolveStart();
+      await pool.waitForAll();
+
+      // After pool finishes, Task 2 attempt should have transitioned and succeeded
+      const attempt2Done = attemptRepo.getAttempt(r2.attempt_id);
+      assert.ok(attempt2Done);
+      assert.equal(attempt2Done.status, 'succeeded');
+    });
+
+    it('should reject invalid role in enqueueTask', async () => {
+      const pool = new ResearchWorkerPool({
+        db,
+        maxConcurrency: 3,
+      });
+
+      await assert.rejects(
+        async () => {
+          await pool.enqueueTask(
+            'invalid_role' as any,
+            {
+              question: '非法角色测试',
+              completion_criteria: '测试',
+              requested_budget_units: 5,
+              required_for_report: true,
+              scope: {},
+              dependencies: [],
+            },
+            { run_id: testRunId }
+          );
+        },
+        /Invalid research role/i
+      );
+    });
+
+    it('should throw immediately when ResearcherAgent.run is called with already aborted signal', async () => {
+      const agent = createResearcherAgent({
+        role: ResearchRole.Authority,
+        systemPrompt: AUTHORITY_SYSTEM_PROMPT,
+        tools: [],
+        submitTool: {
+          name: 'submit_findings',
+          description: 'submit',
+          parameters: {},
+          execute: async () => ({ status: 'success' }),
+        },
+        streamFn: createScriptedStreamFn([{ text: 'hi' }]),
+      });
+
+      const controller = new AbortController();
+      controller.abort(new Error('Pre-aborted signal'));
+
+      await assert.rejects(
+        async () => {
+          await agent.run('test prompt', controller.signal);
+        },
+        /Pre-aborted signal|aborted/i
+      );
+    });
+  });
 });
+

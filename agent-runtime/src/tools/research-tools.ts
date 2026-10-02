@@ -16,6 +16,7 @@ import {
   type AcceptedTaskReceipt,
   type RejectedTaskReceipt,
   ResearchJobParamsSchema,
+  ResearchSubagentRoleSchema,
 } from '../contracts/research.js';
 import { ResearchWorkerPool } from '../orchestration/research-worker.js';
 
@@ -91,6 +92,17 @@ export function createResearchRoleTool(
       required: ['question', 'completion_criteria'],
     },
     execute: async (params: any): Promise<TaskReceipt> => {
+      // 0. Role validation
+      const roleValidation = ResearchSubagentRoleSchema.safeParse(roleStr);
+      if (!roleValidation.success) {
+        return {
+          status: 'rejected',
+          role: roleStr,
+          result_pending: false,
+          reason: `Invalid research subagent role '${roleStr}'. Must be authority, evolution, or feedback.`,
+        };
+      }
+
       // 1. Strict validation
       const parseResult = ResearchJobParamsSchema.safeParse(params);
       if (!parseResult.success) {
@@ -166,7 +178,7 @@ export function createResearchRoleTool(
             task_id: taskId,
             run_id: runId,
             execution_version: 1,
-            status: 'running',
+            status: 'queued',
             started_at: nowIso,
           });
         });

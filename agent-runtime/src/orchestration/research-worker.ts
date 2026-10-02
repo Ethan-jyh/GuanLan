@@ -19,6 +19,7 @@ import {
   type ResearchOutcome,
   type ResearchOutcomeStatus,
   parseResearchJobParams,
+  ResearchSubagentRoleSchema,
 } from '../contracts/research.js';
 import {
   createSubmitFindingsTool,
@@ -122,8 +123,14 @@ export class ResearchWorkerPool {
       timeoutMs?: number;
     }
   ): Promise<AcceptedTaskReceipt> {
+    const roleValidation = ResearchSubagentRoleSchema.safeParse(role);
+    if (!roleValidation.success) {
+      throw new Error(
+        `Invalid research role '${String(role)}'. Must be one of: authority, evolution, feedback`
+      );
+    }
+    const subagentRole = roleValidation.data;
     const validated = parseResearchJobParams(params);
-    const subagentRole = String(role) as ResearchSubagentRole;
 
     const runId = meta?.run_id || 'default-run';
     const taskId = meta?.task_id || `task-${subagentRole}-${randomUUID().slice(0, 8)}`;
@@ -157,7 +164,7 @@ export class ResearchWorkerPool {
         task_id: taskId,
         run_id: runId,
         execution_version: executionVersion,
-        status: 'running',
+        status: 'queued',
         started_at: nowIso,
       });
     });
@@ -308,11 +315,15 @@ export class ResearchWorkerPool {
 
     this.activeExecutions.set(item.task_id, active);
 
-    execPromise.finally(() => {
-      if (timeoutTimer) clearTimeout(timeoutTimer);
-      this.activeExecutions.delete(item.task_id);
-      this.processQueue();
-    });
+    execPromise
+      .catch(() => {
+        // Guard against unhandled rejections
+      })
+      .finally(() => {
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        this.activeExecutions.delete(item.task_id);
+        this.processQueue();
+      });
   }
 
   private async executeTaskAttempt(
@@ -322,156 +333,156 @@ export class ResearchWorkerPool {
     let submittedOutcome: ResearchOutcome | null = null;
     let toolAttempts = 0;
 
-    // Update status to running
     try {
-      this.attemptRepo.updateStatus(item.attempt_id, 'running');
-      this.taskRepo.updateTaskStatus(item.task_id, TaskStatus.Running);
-    } catch {
-      // Ignore if update fails
-    }
-
-    // 1. Create bound submit_findings tool for this specific attempt
-    const submitContext: SubmitFindingsContext = {
-      run_id: item.run_id,
-      task_id: item.task_id,
-      attempt_id: item.attempt_id,
-      role: item.role,
-      execution_version: item.execution_version,
-    };
-
-    const submitTool = createSubmitFindingsTool(async (findings: any) => {
-      toolAttempts++;
-      const nowIso = new Date().toISOString();
-      const resultId = `result-${item.task_id}-v${item.execution_version}`;
-
-      const status: ResearchOutcomeStatus =
-        findings.status === 'partial' ? 'partial' : 'succeeded';
-      const taskStatus =
-        status === 'partial' ? TaskStatus.Partial : TaskStatus.Succeeded;
-
-      let summary =
-        findings.summary ||
-        findings.authority_finding?.raw_text ||
-        findings.evolution_finding?.phase_transition_analysis ||
-        (Array.isArray(findings.feedback_finding?.demands_summary)
-          ? findings.feedback_finding.demands_summary.join('; ')
-          : findings.feedback_finding?.denominator_info) ||
-        'Research task findings submitted successfully';
-
-      const evidenceRefs: string[] = Array.isArray(findings.evidence_pool)
-        ? findings.evidence_pool
-            .map((e: any) => e.evidence_id || e.source_ref)
-            .filter(Boolean)
-        : [];
-
-      const resultRecord: TaskResultRecord = {
-        result_id: resultId,
-        run_id: item.run_id,
-        task_id: item.task_id,
-        attempt_id: item.attempt_id,
-        version: item.execution_version,
-        role: item.role,
-        status,
-        findings,
-        summary,
-        evidence_refs: evidenceRefs,
-        created_at: nowIso,
-      };
-
-      const outcome: ResearchOutcome = {
-        run_id: item.run_id,
-        task_id: item.task_id,
-        attempt_id: item.attempt_id,
-        execution_version: item.execution_version,
-        role: item.role,
-        status,
-        result_ref: resultId,
-        summary,
-        usage: { tool_attempts: toolAttempts },
-        completed_at: nowIso,
-      };
-
-      // Atomic commit to SQLite and outbox
-      saveOutcomeWithOutbox(this.options.db, {
-        result: resultRecord,
-        attempt_status: status,
-        completed_at: nowIso,
-        attempt_usage: outcome.usage,
-        task_status: taskStatus,
-        outbox_event: {
-          event_type: 'research_outcome',
-          payload: { outcome },
-        },
-      });
-
-      submittedOutcome = outcome;
-      return { ok: true, submissionId: resultId };
-    }, submitContext);
-
-    // 2. Build or obtain isolated agent for this attempt
-    const taskContext: WorkerTaskContext = {
-      run_id: item.run_id,
-      task_id: item.task_id,
-      attempt_id: item.attempt_id,
-      role: item.role,
-      execution_version: item.execution_version,
-      question: item.question,
-      scope: item.scope,
-      completion_criteria: item.completion_criteria,
-      signal: abortController.signal,
-      abortController,
-      submitTool,
-    };
-
-    let agent: WorkerAgentLike;
-    if (this.options.agentFactory) {
-      agent = await this.options.agentFactory(taskContext);
-    } else {
-      let systemPrompt: string;
-      switch (item.role) {
-        case 'evolution':
-          systemPrompt = EVOLUTION_SYSTEM_PROMPT;
-          break;
-        case 'feedback':
-          systemPrompt = FEEDBACK_SYSTEM_PROMPT;
-          break;
-        case 'authority':
-        default:
-          systemPrompt = AUTHORITY_SYSTEM_PROMPT;
-          break;
+      // Update status to running
+      try {
+        this.attemptRepo.updateStatus(item.attempt_id, 'running');
+        this.taskRepo.updateTaskStatus(item.task_id, TaskStatus.Running);
+      } catch {
+        // Ignore if update fails
       }
 
-      const roleTools =
-        typeof this.options.tools === 'function'
-          ? this.options.tools(item.role)
-          : this.options.tools || [];
+      // 1. Create bound submit_findings tool for this specific attempt
+      const submitContext: SubmitFindingsContext = {
+        run_id: item.run_id,
+        task_id: item.task_id,
+        attempt_id: item.attempt_id,
+        role: item.role,
+        execution_version: item.execution_version,
+      };
 
-      const budgetGate = new BudgetGate();
+      const submitTool = createSubmitFindingsTool(async (findings: any) => {
+        toolAttempts++;
+        const nowIso = new Date().toISOString();
+        const resultId = `result-${item.task_id}-v${item.execution_version}`;
 
-      agent = createResearcherAgent({
-        role: item.role as ResearchRole,
-        systemPrompt,
-        tools: roleTools,
+        const status: ResearchOutcomeStatus =
+          findings.status === 'partial' ? 'partial' : 'succeeded';
+        const taskStatus =
+          status === 'partial' ? TaskStatus.Partial : TaskStatus.Succeeded;
+
+        let summary =
+          findings.summary ||
+          findings.authority_finding?.raw_text ||
+          findings.evolution_finding?.phase_transition_analysis ||
+          (Array.isArray(findings.feedback_finding?.demands_summary)
+            ? findings.feedback_finding.demands_summary.join('; ')
+            : findings.feedback_finding?.denominator_info) ||
+          'Research task findings submitted successfully';
+
+        const evidenceRefs: string[] = Array.isArray(findings.evidence_pool)
+          ? findings.evidence_pool
+              .map((e: any) => e.evidence_id || e.source_ref)
+              .filter(Boolean)
+          : [];
+
+        const resultRecord: TaskResultRecord = {
+          result_id: resultId,
+          run_id: item.run_id,
+          task_id: item.task_id,
+          attempt_id: item.attempt_id,
+          version: item.execution_version,
+          role: item.role,
+          status,
+          findings,
+          summary,
+          evidence_refs: evidenceRefs,
+          created_at: nowIso,
+        };
+
+        const outcome: ResearchOutcome = {
+          run_id: item.run_id,
+          task_id: item.task_id,
+          attempt_id: item.attempt_id,
+          execution_version: item.execution_version,
+          role: item.role,
+          status,
+          result_ref: resultId,
+          summary,
+          usage: { tool_attempts: toolAttempts },
+          completed_at: nowIso,
+        };
+
+        // Atomic commit to SQLite and outbox
+        saveOutcomeWithOutbox(this.options.db, {
+          result: resultRecord,
+          attempt_status: status,
+          completed_at: nowIso,
+          attempt_usage: outcome.usage,
+          task_status: taskStatus,
+          outbox_event: {
+            event_type: 'research_outcome',
+            payload: { outcome },
+          },
+        });
+
+        submittedOutcome = outcome;
+        return { ok: true, submissionId: resultId };
+      }, submitContext);
+
+      // 2. Build or obtain isolated agent for this attempt
+      const taskContext: WorkerTaskContext = {
+        run_id: item.run_id,
+        task_id: item.task_id,
+        attempt_id: item.attempt_id,
+        role: item.role,
+        execution_version: item.execution_version,
+        question: item.question,
+        scope: item.scope,
+        completion_criteria: item.completion_criteria,
+        signal: abortController.signal,
+        abortController,
         submitTool,
-        streamFn: this.options.streamFn || (() => ({}) as any),
-        budgetGate,
-      });
-    }
+      };
 
-    // Record agent reference for active cancellation
-    const active = this.activeExecutions.get(item.task_id);
-    if (active) {
-      active.agent = agent;
-    }
+      let agent: WorkerAgentLike;
+      if (this.options.agentFactory) {
+        agent = await this.options.agentFactory(taskContext);
+      } else {
+        let systemPrompt: string;
+        switch (item.role) {
+          case 'evolution':
+            systemPrompt = EVOLUTION_SYSTEM_PROMPT;
+            break;
+          case 'feedback':
+            systemPrompt = FEEDBACK_SYSTEM_PROMPT;
+            break;
+          case 'authority':
+          default:
+            systemPrompt = AUTHORITY_SYSTEM_PROMPT;
+            break;
+        }
 
-    if (agent.abort) {
-      abortController.signal.addEventListener('abort', () => agent.abort?.(), {
-        once: true,
-      });
-    }
+        const roleTools =
+          typeof this.options.tools === 'function'
+            ? this.options.tools(item.role)
+            : this.options.tools || [];
 
-    // 3. Run the worker agent in try/catch isolated sandbox
-    try {
+        const budgetGate = new BudgetGate();
+
+        agent = createResearcherAgent({
+          role: item.role as ResearchRole,
+          systemPrompt,
+          tools: roleTools,
+          submitTool,
+          streamFn: this.options.streamFn || (() => ({}) as any),
+          budgetGate,
+        });
+      }
+
+      // Record agent reference for active cancellation
+      const active = this.activeExecutions.get(item.task_id);
+      if (active) {
+        active.agent = agent;
+      }
+
+      if (agent.abort) {
+        abortController.signal.addEventListener('abort', () => agent.abort?.(), {
+          once: true,
+        });
+      }
+
+      // 3. Run the worker agent in isolated sandbox
       if (abortController.signal.aborted) {
         throw abortController.signal.reason || new Error('Aborted before start');
       }
@@ -480,6 +491,11 @@ export class ResearchWorkerPool {
 
       if (submittedOutcome) {
         return submittedOutcome;
+      }
+
+      // If aborted during run without throwing, fail through to abort/timeout handling
+      if (abortController.signal.aborted) {
+        throw abortController.signal.reason || new Error('Task execution aborted');
       }
 
       // Completed without explicit submission: save partial
@@ -523,6 +539,9 @@ export class ResearchWorkerPool {
 
       return outcome;
     } catch (err: any) {
+      if (submittedOutcome) {
+        return submittedOutcome;
+      }
       const nowIso = new Date().toISOString();
       const resultId = `result-${item.task_id}-v${item.execution_version}`;
 

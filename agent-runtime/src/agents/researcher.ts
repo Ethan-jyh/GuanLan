@@ -36,12 +36,11 @@ export class ResearcherAgent {
   }
 
   async run(prompt: string, signal?: AbortSignal): Promise<PiAgentResult> {
+    if (signal?.aborted) {
+      throw signal.reason || new Error('Task execution aborted');
+    }
     if (signal) {
-      if (signal.aborted) {
-        this.abort();
-      } else {
-        signal.addEventListener('abort', () => this.abort(), { once: true });
-      }
+      signal.addEventListener('abort', () => this.abort(), { once: true });
     }
     return this.adapter.run(prompt);
   }
