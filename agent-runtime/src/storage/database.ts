@@ -167,6 +167,7 @@ CREATE TABLE IF NOT EXISTS host_inbox (
     processed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_host_inbox_run_status ON host_inbox(run_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_host_inbox_run_seq ON host_inbox(run_id, event_seq) WHERE event_seq IS NOT NULL;
 `;
 
 export class DatabaseMigrations {

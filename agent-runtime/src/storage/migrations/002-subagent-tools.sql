@@ -54,9 +54,4 @@ CREATE TABLE IF NOT EXISTS host_inbox (
     processed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_host_inbox_run_status ON host_inbox(run_id, status);
-
-ALTER TABLE tasks ADD COLUMN generation INTEGER DEFAULT 1;
-ALTER TABLE tasks ADD COLUMN completion_criteria TEXT;
-ALTER TABLE tasks ADD COLUMN required_for_report INTEGER DEFAULT 1;
-ALTER TABLE tasks ADD COLUMN dependencies_json TEXT;
-ALTER TABLE tasks ADD COLUMN superseded_by TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_host_inbox_run_seq ON host_inbox(run_id, event_seq) WHERE event_seq IS NOT NULL;

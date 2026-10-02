@@ -80,6 +80,7 @@ describe('Task 2: Storage Layer, Migrations, Repositories & Outbox', () => {
       assert.ok(indexNames.has('idx_outbox_undelivered'), 'idx_outbox_undelivered missing');
       assert.ok(indexNames.has('idx_outbox_run'), 'idx_outbox_run missing');
       assert.ok(indexNames.has('idx_host_inbox_run_status'), 'idx_host_inbox_run_status missing');
+      assert.ok(indexNames.has('idx_host_inbox_run_seq'), 'idx_host_inbox_run_seq missing');
     });
 
     it('should extend tasks table with 002 columns', () => {
@@ -104,6 +105,16 @@ describe('Task 2: Storage Layer, Migrations, Repositories & Outbox', () => {
       assert.doesNotThrow(() => {
         DatabaseMigrations.applyMigrations(rawDb);
       });
+    });
+
+    it('002-subagent-tools.sql file execution should be idempotent with extendTasksTable', () => {
+      const freshDb = new DatabaseSync(':memory:');
+      // Apply 001 first
+      DatabaseMigrations.applyMigrations(freshDb);
+      // Run extendTasksTable again to simulate pre-existing columns
+      DatabaseMigrations.applyMigrations(freshDb);
+      const applied = DatabaseMigrations.getAppliedMigrations(freshDb);
+      assert.equal(applied.length, 2);
     });
   });
 
@@ -412,6 +423,32 @@ describe('Task 2: Storage Layer, Migrations, Repositories & Outbox', () => {
       assert.equal(idFirst, idSecond);
       const list = hostInboxRepo.listByRun('run-100');
       assert.equal(list.length, 1);
+    });
+
+    it('should enforce unique constraint on host_inbox(run_id, event_seq) while allowing multiple NULL event_seq', () => {
+      // 1. Direct duplicate insert on non-null event_seq must violate unique index
+      assert.throws(
+        () => {
+          rawDb
+            .prepare(
+              "INSERT INTO host_inbox (run_id, event_seq, status) VALUES ('run-uniq', 100, 'pending')"
+            )
+            .run();
+          rawDb
+            .prepare(
+              "INSERT INTO host_inbox (run_id, event_seq, status) VALUES ('run-uniq', 100, 'pending')"
+            )
+            .run();
+        },
+        /UNIQUE constraint failed/i
+      );
+
+      // 2. Multiple NULL event_seq are allowed due to partial index WHERE event_seq IS NOT NULL
+      assert.doesNotThrow(() => {
+        const idA = hostInboxRepo.recordEvent('run-uniq', null);
+        const idB = hostInboxRepo.recordEvent('run-uniq', null);
+        assert.notEqual(idA, idB);
+      });
     });
   });
 

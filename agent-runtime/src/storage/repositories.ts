@@ -6,11 +6,9 @@ import {
   TaskStatus,
   ResearchRole,
   DecisionType,
-  HostReviewDecision,
   DirectiveItem,
 } from '../contracts/research.js';
 import { TaskOutput } from '../contracts/task.js';
-import { ResearchOutcome, TaskReceipt, HostInboxEvent } from '../contracts/research-job.js';
 
 export class RunRepository {
   constructor(private db: ResearchDatabase) {}
@@ -767,21 +765,46 @@ export class HostInboxRepository {
 
   public recordEvent(run_id: string, event_seq?: number | null): number {
     if (event_seq !== undefined && event_seq !== null) {
-      const existing = this.db.raw
-        .prepare('SELECT inbox_id FROM host_inbox WHERE run_id = ? AND event_seq = ?')
-        .get(run_id, event_seq) as any;
+      return this.db.transaction(() => {
+        const existing = this.db.raw
+          .prepare('SELECT inbox_id FROM host_inbox WHERE run_id = ? AND event_seq = ?')
+          .get(run_id, event_seq) as any;
 
-      if (existing) {
-        return existing.inbox_id as number;
-      }
+        if (existing) {
+          return existing.inbox_id as number;
+        }
+
+        try {
+          const result = this.db.raw
+            .prepare(
+              `INSERT INTO host_inbox (run_id, event_seq, status, claimed_at, processed_at)
+               VALUES (?, ?, 'pending', NULL, NULL)`
+            )
+            .run(run_id, event_seq);
+          return Number(result.lastInsertRowid);
+        } catch (err: any) {
+          if (
+            err.message &&
+            (err.message.includes('UNIQUE constraint failed') || err.message.includes('constraint failed'))
+          ) {
+            const conflictRow = this.db.raw
+              .prepare('SELECT inbox_id FROM host_inbox WHERE run_id = ? AND event_seq = ?')
+              .get(run_id, event_seq) as any;
+            if (conflictRow) {
+              return conflictRow.inbox_id as number;
+            }
+          }
+          throw err;
+        }
+      });
     }
 
     const result = this.db.raw
       .prepare(
         `INSERT INTO host_inbox (run_id, event_seq, status, claimed_at, processed_at)
-         VALUES (?, ?, 'pending', NULL, NULL)`
+         VALUES (?, NULL, 'pending', NULL, NULL)`
       )
-      .run(run_id, event_seq ?? null);
+      .run(run_id);
 
     return Number(result.lastInsertRowid);
   }
