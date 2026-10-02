@@ -1118,3 +1118,71 @@ export function saveOutcomeWithOutbox(db: ResearchDatabase, params: SaveOutcomeP
     }
   });
 }
+
+export class MaterialSnapshotRepository {
+  constructor(private db: ResearchDatabase) {}
+
+  public saveSnapshot(snapshot: { snapshot_id: string; run_id: string; created_at?: string } & Record<string, any>): void {
+    const nowIso = snapshot.created_at || new Date().toISOString();
+    const dataJson = JSON.stringify(snapshot);
+
+    try {
+      this.db.raw
+        .prepare(
+          `INSERT INTO material_snapshots (snapshot_id, run_id, snapshot_data_json, created_at)
+           VALUES (?, ?, ?, ?)`
+        )
+        .run(snapshot.snapshot_id, snapshot.run_id, dataJson, nowIso);
+    } catch (err: any) {
+      if (
+        err.message &&
+        (err.message.includes('UNIQUE constraint failed') ||
+          err.message.includes('PRIMARY KEY'))
+      ) {
+        throw new Error(
+          `Material snapshot already exists and cannot overwrite (snapshot_id: ${snapshot.snapshot_id}): ${err.message}`
+        );
+      }
+      throw err;
+    }
+  }
+
+  public getSnapshot<T = any>(snapshot_id: string): T | null {
+    const row = this.db.raw
+      .prepare('SELECT * FROM material_snapshots WHERE snapshot_id = ?')
+      .get(snapshot_id) as any;
+    if (!row) return null;
+    try {
+      return JSON.parse(row.snapshot_data_json);
+    } catch {
+      return null;
+    }
+  }
+
+  public getLatestSnapshot<T = any>(run_id: string): T | null {
+    const row = this.db.raw
+      .prepare('SELECT * FROM material_snapshots WHERE run_id = ? ORDER BY created_at DESC LIMIT 1')
+      .get(run_id) as any;
+    if (!row) return null;
+    try {
+      return JSON.parse(row.snapshot_data_json);
+    } catch {
+      return null;
+    }
+  }
+
+  public listSnapshots<T = any>(run_id: string): T[] {
+    const rows = this.db.raw
+      .prepare('SELECT * FROM material_snapshots WHERE run_id = ? ORDER BY created_at ASC')
+      .all(run_id) as any[];
+    return rows
+      .map((r) => {
+        try {
+          return JSON.parse(r.snapshot_data_json);
+        } catch {
+          return null;
+        }
+      })
+      .filter((s): s is T => s !== null);
+  }
+}

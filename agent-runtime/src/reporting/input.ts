@@ -1,4 +1,5 @@
-import { ResearchRole, Claim, Evidence, VerificationItem } from '../contracts/research.js';
+import { Claim, Evidence, VerificationItem } from '../contracts/research.js';
+import type { MaterialSnapshot } from '../orchestration/release-gate.js';
 
 export interface ReportInputResult {
   run_id: string;
@@ -12,23 +13,107 @@ export interface ReportInputResult {
   unresolved_issues: string[];
 }
 
+export function isMaterialSnapshot(val: unknown): val is MaterialSnapshot {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    'snapshot_id' in val &&
+    typeof (val as any).snapshot_id === 'string'
+  );
+}
+
+export function buildReportInputFromSnapshot(
+  snapshot: MaterialSnapshot,
+  meta?: {
+    topic?: string;
+    scope?: Record<string, unknown>;
+    verifications?: VerificationItem[];
+    unresolved_issues?: string[];
+  }
+): ReportInputResult {
+  const research_versions: Record<string, number> = {};
+  const findings_data: Record<string, any> = {};
+
+  for (const res of snapshot.accepted_results || []) {
+    research_versions[res.role] = res.version;
+    findings_data[res.role] = res.findings || { summary: res.summary };
+  }
+
+  const combinedIssues = Array.from(
+    new Set([...(meta?.unresolved_issues || []), ...(snapshot.gaps || [])])
+  );
+
+  return {
+    run_id: snapshot.run_id,
+    topic: meta?.topic || '',
+    scope: meta?.scope || {},
+    research_versions,
+    findings: findings_data,
+    claims: snapshot.claims || [],
+    evidence_pool: snapshot.evidence_pool || [],
+    verifications: meta?.verifications || [],
+    unresolved_issues: combinedIssues,
+  };
+}
+
 export function buildReportInput(
-  run_id: string,
-  topic: string,
-  scope: Record<string, unknown>,
-  effectiveSubmissions: Record<string, any> | Map<string, any>,
+  runIdOrSnapshot: string | MaterialSnapshot,
+  topicOrMeta?: string | {
+    topic?: string;
+    scope?: Record<string, unknown>;
+    verifications?: VerificationItem[];
+    unresolved_issues?: string[];
+  },
+  scope?: Record<string, unknown>,
+  effectiveSubmissions?: Record<string, any> | Map<string, any> | MaterialSnapshot,
   verifications: VerificationItem[] = [],
   unresolved_issues: string[] = []
 ): ReportInputResult {
+  // Overload 1: First argument is MaterialSnapshot
+  if (isMaterialSnapshot(runIdOrSnapshot)) {
+    const meta =
+      typeof topicOrMeta === 'object' && topicOrMeta !== null
+        ? topicOrMeta
+        : {
+            topic: typeof topicOrMeta === 'string' ? topicOrMeta : undefined,
+            scope,
+            verifications,
+            unresolved_issues,
+          };
+    return buildReportInputFromSnapshot(runIdOrSnapshot, meta);
+  }
+
+  const run_id = runIdOrSnapshot;
+  const topic = typeof topicOrMeta === 'string' ? topicOrMeta : '';
+  const effectiveScope = scope || {};
+
+  // Overload 2: effectiveSubmissions is MaterialSnapshot
+  if (isMaterialSnapshot(effectiveSubmissions)) {
+    const snapshot = effectiveSubmissions;
+    if (snapshot.run_id && snapshot.run_id !== run_id) {
+      throw new Error(
+        `Cross-run isolation violation: foreign snapshot '${snapshot.run_id}' cannot be included in report for '${run_id}'`
+      );
+    }
+    return buildReportInputFromSnapshot(snapshot, {
+      topic,
+      scope: effectiveScope,
+      verifications,
+      unresolved_issues,
+    });
+  }
+
+  // Classic submission-based path
   const research_versions: Record<string, number> = {};
   const findings_data: Record<string, any> = {};
   const all_claims: Claim[] = [];
   const all_evidences: Evidence[] = [];
 
+  const submissions = effectiveSubmissions || {};
   const entries =
-    effectiveSubmissions instanceof Map
-      ? Array.from(effectiveSubmissions.entries())
-      : Object.entries(effectiveSubmissions);
+    submissions instanceof Map
+      ? Array.from(submissions.entries())
+      : Object.entries(submissions);
 
   for (const [roleName, sub] of entries) {
     if (!sub) continue;
@@ -55,7 +140,7 @@ export function buildReportInput(
   return {
     run_id,
     topic,
-    scope,
+    scope: effectiveScope,
     research_versions,
     findings: findings_data,
     claims: all_claims,

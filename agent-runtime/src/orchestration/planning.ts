@@ -10,6 +10,8 @@ export interface PlannedTaskInput {
   completion_criteria: string;
   scope?: Record<string, unknown>;
   dependencies?: string[];
+  generation?: number;
+  required_for_report?: boolean;
 }
 
 export class TaskPlanner {
@@ -63,6 +65,21 @@ export class TaskPlanner {
 
       if (!item.completion_criteria || !item.completion_criteria.trim()) {
         return { ok: false, error: `Missing completion_criteria for role '${item.role}'` };
+      }
+
+      if (item.generation !== undefined) {
+        if (typeof item.generation !== 'number' || !Number.isInteger(item.generation) || item.generation < 1) {
+          return {
+            ok: false,
+            error: `Invalid generation '${item.generation}' for role '${item.role}'. Must be a positive integer.`,
+          };
+        }
+        if (item.generation > 3) {
+          return {
+            ok: false,
+            error: `Generation limit exceeded: generation ${item.generation} for role '${item.role}' exceeds maximum allowed limit of 3`,
+          };
+        }
       }
     }
 
@@ -127,8 +144,28 @@ export class TaskPlanner {
 
     const nowIso = new Date().toISOString();
     const created: ResearchTask[] = [];
+    const existingTasks = this.taskRepo.listTasks(runId);
 
     for (const item of plannedTasks) {
+      let gen = item.generation;
+      if (gen === undefined) {
+        const normQ = item.question.trim().toLowerCase();
+        const sameQuestionTasks = existingTasks.filter(
+          (t) => t.question.trim().toLowerCase() === normQ
+        );
+        const prevMax =
+          sameQuestionTasks.length > 0
+            ? Math.max(...sameQuestionTasks.map((t) => t.generation ?? 1))
+            : 0;
+        gen = prevMax > 0 ? prevMax + 1 : 1;
+      }
+
+      if (gen > 3) {
+        throw new Error(
+          `Generation limit exceeded: cannot plan task for question "${item.question}" (generation ${gen} exceeds maximum limit of 3)`
+        );
+      }
+
       const taskId =
         item.task_id || `task-${item.role}-${randomUUID().substring(0, 8)}`;
 
@@ -137,8 +174,12 @@ export class TaskPlanner {
         run_id: runId,
         role: item.role,
         round: roundNum,
+        generation: gen,
         question: item.question,
         scope: item.scope || {},
+        completion_criteria: item.completion_criteria,
+        required_for_report: item.required_for_report !== false,
+        dependencies: item.dependencies || [],
         status: TaskStatus.Pending,
         budget_allocated: item.budget_allocated,
         created_at: nowIso,
@@ -146,8 +187,60 @@ export class TaskPlanner {
 
       this.taskRepo.createTask(task);
       created.push(task);
+      existingTasks.push(task as any);
     }
 
     return created;
+  }
+
+  public planFollowUpTask(
+    runId: string,
+    parentTaskId: string,
+    params?: Partial<PlannedTaskInput>
+  ): ResearchTask {
+    const parentTask = this.taskRepo.getTask(parentTaskId);
+    if (!parentTask) {
+      throw new Error(`Parent task ${parentTaskId} not found`);
+    }
+
+    const prevGen = parentTask.generation ?? 1;
+    const nextGen = prevGen + 1;
+    if (nextGen > 3) {
+      throw new Error(
+        `Generation limit exceeded: cannot create follow-up task for parent '${parentTaskId}' (generation ${nextGen} exceeds maximum limit of 3)`
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+    const role = (params?.role as ResearchRole) || parentTask.role;
+    const taskId =
+      params?.task_id || `task-${role}-gen${nextGen}-${randomUUID().substring(0, 6)}`;
+
+    const task: ResearchTask = {
+      task_id: taskId,
+      run_id: runId,
+      role,
+      round: (parentTask.round ?? 1) + 1,
+      generation: nextGen,
+      question: params?.question || parentTask.question,
+      scope: {
+        ...(parentTask.scope || {}),
+        ...(params?.scope || {}),
+        parent_task_id: parentTaskId,
+      },
+      completion_criteria:
+        params?.completion_criteria || parentTask.completion_criteria || '',
+      required_for_report:
+        params?.required_for_report !== undefined
+          ? params.required_for_report
+          : parentTask.required_for_report !== false,
+      dependencies: params?.dependencies || [parentTaskId],
+      status: TaskStatus.Pending,
+      budget_allocated: params?.budget_allocated ?? parentTask.budget_allocated ?? 10,
+      created_at: nowIso,
+    };
+
+    this.taskRepo.createTask(task);
+    return task;
   }
 }

@@ -10,6 +10,7 @@ import {
 import { SubmissionManager } from './submissions.js';
 import {
   ResearchRole,
+  ResearchTask,
   RunStatus,
   TaskStatus,
   DecisionType,
@@ -87,13 +88,29 @@ export class ReviewManager {
       this.runRepo.updateRunStatus(run_id, RunStatus.Researching, nextRound);
 
       // Create new follow-up tasks ONLY for targeted roles in directives
+      const existingTasks = this.taskRepo.listTasks(run_id);
       for (const dir of decision.directives || []) {
+        const roleTasks = existingTasks.filter(
+          (t) =>
+            t.role === dir.target_role ||
+            (dir.question && t.question.trim().toLowerCase() === dir.question.trim().toLowerCase())
+        );
+        const prevGen =
+          roleTasks.length > 0 ? Math.max(...roleTasks.map((t) => t.generation ?? 1)) : 1;
+        const nextGen = prevGen + 1;
+        if (nextGen > 3) {
+          throw new Error(
+            `Generation limit exceeded: cannot issue revise directive for role '${dir.target_role}' (generation ${nextGen} exceeds maximum limit of 3)`
+          );
+        }
+
         const taskId = `task-${dir.target_role}-r${nextRound}-${randomUUID().substring(0, 6)}`;
-        this.taskRepo.createTask({
+        const newTask: ResearchTask = {
           task_id: taskId,
           run_id,
           role: dir.target_role,
           round: nextRound,
+          generation: nextGen,
           question: dir.question,
           scope: {
             directive_id: dir.directive_id,
@@ -104,7 +121,9 @@ export class ReviewManager {
           status: TaskStatus.Pending,
           budget_allocated: 10,
           created_at: nowIso,
-        });
+        };
+        this.taskRepo.createTask(newTask);
+        existingTasks.push(newTask as any);
       }
     }
 
@@ -247,5 +266,29 @@ export class StageReviewManager {
 
   public pauseRunOnCapReached(run_id: string, reason = 'HOST stage decision cap reached'): void {
     this.runRepo.updateRunStatus(run_id, RunStatus.Paused);
+  }
+
+  public checkFollowUpGeneration(
+    run_id: string,
+    targetRoleOrQuestion: string
+  ): { allowed: boolean; nextGeneration: number; reason?: string } {
+    const existingTasks = this.taskRepo.listTasks(run_id);
+    const norm = targetRoleOrQuestion.trim().toLowerCase();
+    const matches = existingTasks.filter(
+      (t) => t.role === targetRoleOrQuestion || t.question.trim().toLowerCase() === norm
+    );
+    const maxGen = matches.length > 0 ? Math.max(...matches.map((t) => t.generation ?? 1)) : 0;
+    const nextGen = maxGen > 0 ? maxGen + 1 : 1;
+    if (nextGen > 3) {
+      return {
+        allowed: false,
+        nextGeneration: nextGen,
+        reason: `Generation limit exceeded (current: ${maxGen}, requested next: ${nextGen} > 3)`,
+      };
+    }
+    return {
+      allowed: true,
+      nextGeneration: nextGen,
+    };
   }
 }

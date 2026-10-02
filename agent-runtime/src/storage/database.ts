@@ -181,6 +181,14 @@ CREATE TABLE IF NOT EXISTS host_decisions (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_host_decisions_run ON host_decisions(run_id);
+
+CREATE TABLE IF NOT EXISTS material_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    snapshot_data_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_material_snapshots_run ON material_snapshots(run_id);
 `;
 
 export class DatabaseMigrations {
@@ -234,7 +242,7 @@ export class DatabaseMigrations {
       db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)')
         .run(2, '002-subagent-tools', nowIso);
     } else {
-      // Even if 002 recorded, ensure tasks columns are present
+      // Even if 002 recorded, ensure tasks columns and material_snapshots are present
       DatabaseMigrations.extendTasksTable(db);
     }
   }
@@ -261,6 +269,16 @@ export class DatabaseMigrations {
       if (!colNames.has('superseded_by')) {
         db.exec('ALTER TABLE tasks ADD COLUMN superseded_by TEXT;');
       }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS material_snapshots (
+            snapshot_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            snapshot_data_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_material_snapshots_run ON material_snapshots(run_id);
+      `);
     } catch {
       // If tasks table doesn't exist yet, ignore
     }

@@ -69,3 +69,11 @@ CREATE TABLE IF NOT EXISTS host_decisions (
 );
 CREATE INDEX IF NOT EXISTS idx_host_decisions_run ON host_decisions(run_id);
 
+CREATE TABLE IF NOT EXISTS material_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    snapshot_data_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_material_snapshots_run ON material_snapshots(run_id);
+
