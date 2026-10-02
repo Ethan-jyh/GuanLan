@@ -1,4 +1,4 @@
-import { BudgetLedger, ReserveResult } from '../storage/budget-ledger.js';
+import { BudgetLedger, ReserveResult, BudgetUsage } from '../storage/budget-ledger.js';
 
 export interface ActiveCall {
   run_id: string;
@@ -16,6 +16,7 @@ export interface BeginCallParams {
   tool_name: string;
   units?: number;
   is_writing_phase?: boolean;
+  task_budget_allocated?: number;
 }
 
 export interface EndCallParams {
@@ -38,6 +39,7 @@ export class CallLedger {
       units: params.units ?? 1,
       call_type: `tool:${params.tool_name}`,
       is_writing_phase: params.is_writing_phase,
+      task_budget_allocated: params.task_budget_allocated,
     });
 
     if (res.ok && res.reservation_id) {
@@ -105,11 +107,34 @@ export class CallLedger {
     return this.activeCalls.get(call_id);
   }
 
-  public listActiveCalls(run_id?: string): ActiveCall[] {
-    const all = Array.from(this.activeCalls.values());
+  public listActiveCalls(run_id?: string, task_id?: string): ActiveCall[] {
+    let all = Array.from(this.activeCalls.values());
     if (run_id) {
-      return all.filter((c) => c.run_id === run_id);
+      all = all.filter((c) => c.run_id === run_id);
+    }
+    if (task_id) {
+      all = all.filter((c) => c.task_id === task_id);
     }
     return all;
+  }
+
+  public getTaskUsage(taskId: string): BudgetUsage {
+    return this.budgetLedger.getTaskUsage(taskId);
+  }
+
+  public getTaskRemaining(taskId: string, budgetAllocated?: number): number {
+    return this.budgetLedger.getTaskRemaining(taskId, budgetAllocated);
+  }
+
+  public checkTaskQuota(taskId: string, budgetAllocated?: number): boolean {
+    return this.budgetLedger.getTaskRemaining(taskId, budgetAllocated) > 0;
+  }
+
+  public checkGlobalQuota(runId: string, isWritingPhase = false): boolean {
+    return this.budgetLedger.getRemaining(runId, isWritingPhase) > 0;
+  }
+
+  public getTasksUsage(runId: string): Map<string, BudgetUsage> {
+    return this.budgetLedger.getTasksUsage(runId);
   }
 }

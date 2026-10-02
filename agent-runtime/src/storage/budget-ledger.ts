@@ -12,6 +12,7 @@ export interface ReserveParams {
   call_type?: string;
   idempotency_key?: string;
   is_writing_phase?: boolean;
+  task_budget_allocated?: number;
 }
 
 export interface ReserveResult {
@@ -90,6 +91,43 @@ export class BudgetLedger {
           ok: false,
           error: `Budget quota exceeded: committed=${usedSoFar}, requesting=${units}, max_allowed=${maxAllowed}`,
         };
+      }
+
+      // 2b. Calculate task-level committed quota if task_id is provided
+      if (params.task_id) {
+        let taskLimit = params.task_budget_allocated;
+        if (taskLimit === undefined) {
+          try {
+            const taskRow = this.db.raw
+              .prepare('SELECT budget_allocated FROM tasks WHERE task_id = ?')
+              .get(params.task_id) as any;
+            if (taskRow && taskRow.budget_allocated !== undefined) {
+              taskLimit = taskRow.budget_allocated;
+            }
+          } catch {
+            // Ignore if tasks table does not exist
+          }
+        }
+
+        if (taskLimit !== undefined) {
+          const taskStats = this.db.raw
+            .prepare(
+              `SELECT 
+                COALESCE(SUM(units_used), 0) AS total_used,
+                COALESCE(SUM(CASE WHEN status = 'reserved' THEN units_reserved ELSE 0 END), 0) AS total_reserved
+              FROM budget_ledger
+              WHERE task_id = ? AND status IN ('reserved', 'settled')`
+            )
+            .get(params.task_id) as any;
+
+          const taskUsedSoFar = (taskStats?.total_used || 0) + (taskStats?.total_reserved || 0);
+          if (taskUsedSoFar + units > taskLimit) {
+            return {
+              ok: false,
+              error: `Task budget quota exceeded for ${params.task_id}: committed=${taskUsedSoFar}, requesting=${units}, max_allowed=${taskLimit}`,
+            };
+          }
+        }
       }
 
       // 3. Insert reservation
@@ -171,6 +209,73 @@ export class BudgetLedger {
     const usage = this.getUsage(run_id);
     const limit = is_writing_phase ? this.totalToolLimit : this.maxResearchToolQuota;
     return Math.max(0, limit - usage.committed);
+  }
+
+  public getTaskUsage(taskId: string): BudgetUsage {
+    const row = this.db.raw
+      .prepare(
+        `SELECT 
+          COALESCE(SUM(units_used), 0) AS total_used,
+          COALESCE(SUM(CASE WHEN status = 'reserved' THEN units_reserved ELSE 0 END), 0) AS total_reserved
+        FROM budget_ledger
+        WHERE task_id = ? AND status IN ('reserved', 'settled')`
+      )
+      .get(taskId) as any;
+
+    const used = row?.total_used || 0;
+    const reserved = row?.total_reserved || 0;
+    return {
+      used,
+      reserved,
+      committed: used + reserved,
+    };
+  }
+
+  public getTaskRemaining(taskId: string, budgetAllocated?: number): number {
+    let limit = budgetAllocated;
+    if (limit === undefined) {
+      try {
+        const taskRow = this.db.raw
+          .prepare('SELECT budget_allocated FROM tasks WHERE task_id = ?')
+          .get(taskId) as any;
+        if (taskRow && taskRow.budget_allocated !== undefined) {
+          limit = taskRow.budget_allocated;
+        }
+      } catch {
+        // Ignore if tasks table does not exist
+      }
+    }
+    if (limit === undefined) {
+      limit = 12; // default task budget
+    }
+    const usage = this.getTaskUsage(taskId);
+    return Math.max(0, limit - usage.committed);
+  }
+
+  public getTasksUsage(runId: string): Map<string, BudgetUsage> {
+    const rows = this.db.raw
+      .prepare(
+        `SELECT 
+          task_id,
+          COALESCE(SUM(units_used), 0) AS total_used,
+          COALESCE(SUM(CASE WHEN status = 'reserved' THEN units_reserved ELSE 0 END), 0) AS total_reserved
+        FROM budget_ledger
+        WHERE run_id = ? AND task_id IS NOT NULL AND status IN ('reserved', 'settled')
+        GROUP BY task_id`
+      )
+      .all(runId) as any[];
+
+    const result = new Map<string, BudgetUsage>();
+    for (const row of rows) {
+      const used = row.total_used || 0;
+      const reserved = row.total_reserved || 0;
+      result.set(row.task_id, {
+        used,
+        reserved,
+        committed: used + reserved,
+      });
+    }
+    return result;
   }
 
   public preserveUncertainReservations(run_id: string): void {
