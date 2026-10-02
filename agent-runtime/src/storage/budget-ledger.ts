@@ -109,6 +109,10 @@ export class BudgetLedger {
           }
         }
 
+        if (taskLimit === undefined && units <= 12) {
+          taskLimit = 12; // default task budget
+        }
+
         if (taskLimit !== undefined) {
           const taskStats = this.db.raw
             .prepare(

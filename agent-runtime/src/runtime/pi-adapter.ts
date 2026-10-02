@@ -246,6 +246,7 @@ export interface TaskCancellationOptions {
 export class TaskCancellationController {
   private controllers = new Map<string, AbortController>();
   private cancelledTasks = new Set<string>();
+  private cancellationReasons = new Map<string, string>();
   private completedTasks = new Set<string>();
 
   constructor(private options: TaskCancellationOptions = {}) {}
@@ -255,6 +256,13 @@ export class TaskCancellationController {
     if (!controller) {
       controller = new AbortController();
       this.controllers.set(taskId, controller);
+    }
+
+    if (this.cancelledTasks.has(taskId)) {
+      const reason = this.cancellationReasons.get(taskId) || 'Task was already cancelled';
+      if (!controller.signal.aborted) {
+        controller.abort(new Error(reason));
+      }
     }
 
     if (parentSignal) {
@@ -280,6 +288,7 @@ export class TaskCancellationController {
 
   public cancelTask(taskId: string, reason = 'Task cancelled'): boolean {
     this.cancelledTasks.add(taskId);
+    this.cancellationReasons.set(taskId, reason);
     const controller = this.controllers.get(taskId);
     if (controller) {
       if (!controller.signal.aborted) {
@@ -314,6 +323,12 @@ export class TaskCancellationController {
   }
 
   public acceptResult<T>(taskId: string, result: T): { accepted: boolean; result?: T; reason?: string } {
+    if (this.completedTasks.has(taskId)) {
+      return {
+        accepted: false,
+        reason: 'Task has already completed and cannot be overwritten',
+      };
+    }
     if (this.isCancelled(taskId)) {
       return {
         accepted: false,
@@ -330,6 +345,7 @@ export class TaskCancellationController {
   public cleanup(taskId: string): void {
     this.controllers.delete(taskId);
     this.cancelledTasks.delete(taskId);
+    this.cancellationReasons.delete(taskId);
     this.completedTasks.delete(taskId);
   }
 }

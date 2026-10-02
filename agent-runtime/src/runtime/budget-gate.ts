@@ -91,6 +91,7 @@ export class BudgetGate {
         call_type: `tool:${toolName}`,
         is_writing_phase: isWritingPhase,
         task_budget_allocated: taskBudgetAllocated,
+        idempotency_key: callId,
       });
 
       if (!res.ok) {
@@ -175,11 +176,12 @@ export class BudgetGate {
     _result: any,
     signal?: AbortSignal
   ): Promise<void> {
-    if (signal?.aborted) {
-      return;
-    }
     // Only resolve by call_id; NEVER fall back to toolCall.name
     if (!toolCall.call_id) {
+      return;
+    }
+    if (signal?.aborted) {
+      this.activeReservations.delete(toolCall.call_id);
       return;
     }
     const resId = this.activeReservations.get(toolCall.call_id);

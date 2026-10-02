@@ -401,5 +401,100 @@ describe('Task 4: PiAdapter Native Call ID, Dual-Tier Budget Gate & Task Cancell
 
       assert.equal(toolReceivedAbort, true, 'Tool must receive abort signal event');
     });
+
+    it('should enforce result immutability in acceptResult and reject overwrite of completed tasks', () => {
+      const controller = new TaskCancellationController();
+
+      const firstResult = controller.acceptResult('task-imm-1', { summary: 'initial findings' });
+      assert.equal(firstResult.accepted, true);
+
+      // Attempting to submit a second result for the same task must be rejected
+      const secondResult = controller.acceptResult('task-imm-1', { summary: 'overwriting findings' });
+      assert.equal(secondResult.accepted, false);
+      assert.ok(
+        secondResult.reason?.includes('already completed') && secondResult.reason?.includes('cannot be overwritten'),
+        `Reason should indicate task already completed: ${secondResult.reason}`
+      );
+    });
+
+    it('should return aborted signal when createTaskSignal is called for pre-cancelled task', () => {
+      const controller = new TaskCancellationController();
+
+      // Cancel task before signal was ever created
+      controller.cancelTask('task-precancel-1', 'Pre-emptive cancellation');
+
+      // Now create signal
+      const signal = controller.createTaskSignal('task-precancel-1');
+      assert.equal(signal.aborted, true, 'Signal must start in aborted state for pre-cancelled task');
+      assert.ok(
+        String(signal.reason).includes('Pre-emptive cancellation'),
+        `Signal reason should reflect pre-cancellation: ${signal.reason}`
+      );
+    });
+
+    it('should clean up in-memory reservation key on abort in BudgetGate.afterToolCall', async () => {
+      const gate = new BudgetGate({});
+      gate.bindToBudgetLedger(ledger, 'run-clean-1', 'task-clean-1');
+
+      const toolCall: ToolCallSpec = {
+        name: 'search',
+        arguments: {},
+        call_id: 'call-abort-key',
+      };
+
+      await gate.beforeToolCall(toolCall);
+      assert.equal(gate.activeReservationCount, 1);
+      assert.ok(gate.getActiveReservation('call-abort-key'));
+
+      const abortCtrl = new AbortController();
+      abortCtrl.abort(new Error('Tool timed out'));
+
+      // afterToolCall with aborted signal
+      await gate.afterToolCall(toolCall, null, abortCtrl.signal);
+
+      // In-memory key must be cleaned up to avoid leak
+      assert.equal(gate.activeReservationCount, 0, 'Abandoned reservation key must be deleted on abort');
+      assert.equal(gate.getActiveReservation('call-abort-key'), undefined);
+    });
+
+    it('should forward callId as idempotency_key in BudgetGate and default taskLimit to 12', async () => {
+      const gate = new BudgetGate({});
+      gate.bindToBudgetLedger(ledger, 'run-idem-1', 'task-default-limit');
+
+      // 1. Check idempotency: reserve twice with the same call_id
+      const call1: ToolCallSpec = { name: 'search', arguments: {}, call_id: 'idem-call-1' };
+      await gate.beforeToolCall(call1);
+      const res1 = gate.getActiveReservation('idem-call-1');
+
+      // Calling reserve directly with same idempotency key should return same reservation_id
+      const dupReserve = ledger.reserve({
+        run_id: 'run-idem-1',
+        task_id: 'task-default-limit',
+        idempotency_key: 'idem-call-1',
+      });
+      assert.equal(dupReserve.ok, true);
+      assert.equal(dupReserve.reservation_id, res1);
+
+      // 2. Check default task limit of 12 for standalone task without DB row
+      // We already used 1 unit above, reserve 11 more
+      for (let i = 2; i <= 12; i++) {
+        const res = ledger.reserve({
+          run_id: 'run-idem-1',
+          task_id: 'task-default-limit',
+          units: 1,
+        });
+        assert.equal(res.ok, true, `Unit ${i} should succeed within default limit 12`);
+      }
+
+      // 13th unit must exceed the default limit of 12
+      const overLimitRes = ledger.reserve({
+        run_id: 'run-idem-1',
+        task_id: 'task-default-limit',
+        units: 1,
+      });
+      assert.equal(overLimitRes.ok, false);
+      assert.ok(overLimitRes.error?.includes('Task budget quota exceeded'));
+      assert.ok(overLimitRes.error?.includes('max_allowed=12'));
+    });
   });
 });
