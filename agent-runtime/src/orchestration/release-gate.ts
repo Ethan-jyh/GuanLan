@@ -134,14 +134,19 @@ export class ReleaseGate {
         task.status === TaskStatus.Succeeded ||
         taskResults.some((r) => r.status === 'succeeded' || r.status === 'partial');
 
-      // 如果未直接接受，检查是否被后继更高 generation 任务替代并成功
+      // 如果未直接接受，检查是否被后继更高 generation 任务替代并成功/部分成功
       const hasSucceededSuccessor =
         task.superseded_by &&
         allTasks.some(
           (t) =>
             t.task_id === task.superseded_by &&
             (t.status === TaskStatus.Succeeded ||
-              allResults.some((r) => r.task_id === t.task_id && r.status === 'succeeded'))
+              t.status === TaskStatus.Partial ||
+              allResults.some(
+                (r) =>
+                  r.task_id === t.task_id &&
+                  (r.status === 'succeeded' || r.status === 'partial')
+              ))
         );
 
       if (!hasAcceptedResult && !hasSucceededSuccessor) {
@@ -277,6 +282,11 @@ export class ReleaseGate {
       );
       if (!boundSnapshot) {
         errors.push(`Snapshot '${releaseRequest.snapshot_id}' not found`);
+      } else if (boundSnapshot.run_id !== runId) {
+        errors.push(
+          `Cross-run isolation violation: snapshot '${boundSnapshot.snapshot_id}' belongs to run '${boundSnapshot.run_id}', not '${runId}'`
+        );
+        boundSnapshot = null;
       } else {
         // 检查是否有在快照创建后提交的成果
         const newerResults = allResults.filter(

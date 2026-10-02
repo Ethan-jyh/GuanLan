@@ -151,7 +151,7 @@ export class TaskPlanner {
       if (gen === undefined) {
         const normQ = item.question.trim().toLowerCase();
         const sameQuestionTasks = existingTasks.filter(
-          (t) => t.question.trim().toLowerCase() === normQ
+          (t) => t.role === item.role && t.question.trim().toLowerCase() === normQ
         );
         const prevMax =
           sameQuestionTasks.length > 0

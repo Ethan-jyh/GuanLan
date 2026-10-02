@@ -95,9 +95,9 @@ export class ReviewManager {
             t.role === dir.target_role ||
             (dir.question && t.question.trim().toLowerCase() === dir.question.trim().toLowerCase())
         );
-        const prevGen =
-          roleTasks.length > 0 ? Math.max(...roleTasks.map((t) => t.generation ?? 1)) : 1;
-        const nextGen = prevGen + 1;
+        const maxPrevGen =
+          roleTasks.length > 0 ? Math.max(...roleTasks.map((t) => t.generation ?? 1)) : 0;
+        const nextGen = maxPrevGen > 0 ? maxPrevGen + 1 : 1;
         if (nextGen > 3) {
           throw new Error(
             `Generation limit exceeded: cannot issue revise directive for role '${dir.target_role}' (generation ${nextGen} exceeds maximum limit of 3)`

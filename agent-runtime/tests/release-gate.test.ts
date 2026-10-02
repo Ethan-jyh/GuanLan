@@ -339,6 +339,79 @@ describe('Task 6: Revision Limit (generation <= 3), Material Snapshot & Release 
       const attempts = attemptRepo.listAttemptsByTask(taskId);
       assert.equal(attempts.length, 2);
     });
+
+    it('ReviewManager revise directive creates task with generation = 1 for previously uncalled role', () => {
+      const subMgr = new SubmissionManager(submissionRepo, taskRepo, evidenceStore);
+      const revMgr = new ReviewManager(runRepo, taskRepo, reviewRepo, subMgr);
+
+      // Seed authority in round 1
+      taskRepo.createTask({
+        task_id: 'task-auth-r1',
+        run_id: runId,
+        role: ResearchRole.Authority,
+        round: 1,
+        generation: 1,
+        question: 'Official statement',
+        scope: {},
+        status: TaskStatus.Succeeded,
+        budget_allocated: 10,
+        created_at: new Date().toISOString(),
+      });
+
+      // Directive targets feedback role, which was never called in round 1
+      revMgr.submitReviewDecision(runId, {
+        task_id: 'task-auth-r1',
+        round: 1,
+        decision: DecisionType.Revise,
+        rationale: 'Need public sentiment as well',
+        unresolved_issues: [],
+        directives: [
+          {
+            directive_id: 'dir-fb-new',
+            target_role: ResearchRole.Feedback,
+            related_claim_or_issue: 'public-distrust',
+            question: 'What is public sentiment?',
+            suggested_action: 'poll comments',
+            completion_criteria: 'sample 100 comments',
+          },
+        ],
+      });
+
+      const tasks = taskRepo.listTasks(runId);
+      const fbTask = tasks.find((t) => t.role === ResearchRole.Feedback);
+      assert.ok(fbTask, 'Feedback task should be created');
+      assert.equal(fbTask?.generation, 1, 'First-time called role in round 2 should start at generation = 1');
+    });
+
+    it('createPlannedTasks does not conflate different roles with identical question', () => {
+      const planner = new TaskPlanner(taskRepo);
+      const sharedQuestion = 'What happened on October 1st?';
+
+      // Plan authority task
+      const [authTask] = planner.createPlannedTasks(runId, 1, [
+        {
+          role: ResearchRole.Authority,
+          question: sharedQuestion,
+          budget_allocated: 10,
+          completion_criteria: 'Gov announcement',
+          scope: {},
+        },
+      ]);
+      assert.equal(authTask.generation, 1);
+
+      // Plan evolution task with the exact same question
+      const [evoTask] = planner.createPlannedTasks(runId, 1, [
+        {
+          role: ResearchRole.Evolution,
+          question: sharedQuestion,
+          budget_allocated: 10,
+          completion_criteria: 'Timeline curve',
+          scope: {},
+        },
+      ]);
+      // Evolution task should be generation 1, NOT incremented to 2 by authority task!
+      assert.equal(evoTask.generation, 1);
+    });
   });
 
   describe('2. ReleaseGate: 6-Criteria Verification', () => {
@@ -715,6 +788,116 @@ describe('Task 6: Revision Limit (generation <= 3), Material Snapshot & Release 
       assert.ok(
         res2.errors?.some((e: string) => /invalidated|newer/i.test(e)),
         'Old snapshot must be invalidated by new task results'
+      );
+    });
+
+    it('Criterion 1: accepts release when predecessor failed but superseded task succeeded or is partial', () => {
+      setupValidBaseline();
+
+      // Predecessor failed
+      const nowIso = new Date().toISOString();
+      taskRepo.createTask({
+        task_id: 'task-predecessor-failed',
+        run_id: runId,
+        role: ResearchRole.Authority,
+        round: 1,
+        generation: 1,
+        question: 'Timeline check',
+        scope: {},
+        status: TaskStatus.Failed,
+        required_for_report: true,
+        superseded_by: 'task-successor-gen2',
+        budget_allocated: 10,
+        created_at: nowIso,
+      });
+
+      // Successor is partial
+      taskRepo.createTask({
+        task_id: 'task-successor-gen2',
+        run_id: runId,
+        role: ResearchRole.Authority,
+        round: 2,
+        generation: 2,
+        question: 'Timeline check retry',
+        scope: {},
+        status: TaskStatus.Partial,
+        required_for_report: true,
+        budget_allocated: 10,
+        created_at: nowIso,
+      });
+
+      resultRepo.saveResult({
+        result_id: 'res-successor-1',
+        run_id: runId,
+        task_id: 'task-successor-gen2',
+        attempt_id: 'att-s-1',
+        version: 1,
+        role: 'authority',
+        status: 'partial',
+        findings: {
+          claims: [
+            {
+              claim_id: 'claim-partial-1',
+              statement: 'Partial finding accepted',
+              evidence_ids: ['E-001'],
+            },
+          ],
+        },
+        evidence_refs: ['E-001'],
+        created_at: nowIso,
+      });
+
+      const verification = releaseGate.verifyRelease(runId);
+      assert.equal(verification.ok, true, 'Release should pass because failed task was superseded by partial successor');
+    });
+
+    it('Criterion 5: rejects bound snapshot belonging to a different run (cross-run isolation)', () => {
+      setupValidBaseline();
+
+      // Create a foreign run and snapshot
+      const foreignRunId = 'run-foreign-999';
+      runRepo.createRun({
+        run_id: foreignRunId,
+        topic: 'Foreign Run',
+        scope: {},
+        status: RunStatus.Researching,
+        current_round: 1,
+        max_rounds: 3,
+        budget_total: 50,
+        budget_used: 0,
+        execution_version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      const foreignSnapshot: MaterialSnapshot = {
+        snapshot_id: 'snap-foreign-001',
+        run_id: foreignRunId,
+        created_at: new Date().toISOString(),
+        tasks: [],
+        accepted_results: [],
+        claims: [],
+        evidence_pool: [],
+        gaps: [],
+        uncalled_roles: [],
+        restricted: false,
+      };
+      (releaseGate as any).snapshotRepo.saveSnapshot(foreignSnapshot);
+
+      // Attempt to release runId using foreign snapshot
+      const verification = releaseGate.verifyRelease(runId, {
+        snapshot_id: 'snap-foreign-001',
+        rationale: 'Attempting to sneak foreign snapshot',
+        allowed_gaps: [],
+        unresolved_issues: [],
+        restricted: false,
+        target_format: 'docx',
+      });
+
+      assert.equal(verification.ok, false);
+      assert.ok(
+        verification.errors?.some((e: string) => /cross-run isolation violation/i.test(e)),
+        'Must detect cross-run isolation violation for bound snapshot'
       );
     });
   });
