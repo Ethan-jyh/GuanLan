@@ -886,6 +886,106 @@ export class HostInboxRepository {
   }
 }
 
+export interface HostDecisionRecord {
+  decision_id: string;
+  run_id: string;
+  turn_number: number;
+  decision_type: string;
+  rationale?: string;
+  task_id?: string | null;
+  action_payload?: Record<string, unknown> | null;
+  inbox_event_ids?: number[] | null;
+  created_at: string;
+}
+
+export class HostDecisionRepository {
+  constructor(private db: ResearchDatabase) {}
+
+  public saveDecision(decision: HostDecisionRecord): void {
+    const nowIso = decision.created_at || new Date().toISOString();
+    const actionJson = decision.action_payload ? JSON.stringify(decision.action_payload) : null;
+    const inboxJson = decision.inbox_event_ids ? JSON.stringify(decision.inbox_event_ids) : null;
+
+    this.db.raw
+      .prepare(
+        `INSERT INTO host_decisions (
+          decision_id, run_id, turn_number, decision_type, rationale,
+          task_id, action_payload_json, inbox_event_ids_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        decision.decision_id,
+        decision.run_id,
+        decision.turn_number,
+        decision.decision_type,
+        decision.rationale || null,
+        decision.task_id || null,
+        actionJson,
+        inboxJson,
+        nowIso
+      );
+  }
+
+  public listDecisions(run_id: string): HostDecisionRecord[] {
+    const rows = this.db.raw
+      .prepare('SELECT * FROM host_decisions WHERE run_id = ? ORDER BY turn_number ASC')
+      .all(run_id) as any[];
+
+    return rows.map((r) => this.mapRow(r));
+  }
+
+  public getDecisionCount(run_id: string): number {
+    const row = this.db.raw
+      .prepare('SELECT COUNT(*) as cnt FROM host_decisions WHERE run_id = ?')
+      .get(run_id) as any;
+
+    return Number(row?.cnt || 0);
+  }
+
+  public getLatestDecision(run_id: string): HostDecisionRecord | null {
+    const row = this.db.raw
+      .prepare('SELECT * FROM host_decisions WHERE run_id = ? ORDER BY turn_number DESC LIMIT 1')
+      .get(run_id) as any;
+
+    if (!row) return null;
+    return this.mapRow(row);
+  }
+
+  public getDecision(decision_id: string): HostDecisionRecord | null {
+    const row = this.db.raw
+      .prepare('SELECT * FROM host_decisions WHERE decision_id = ?')
+      .get(decision_id) as any;
+
+    if (!row) return null;
+    return this.mapRow(row);
+  }
+
+  private mapRow(row: any): HostDecisionRecord {
+    let action_payload: Record<string, unknown> | null = null;
+    try {
+      if (row.action_payload_json) action_payload = JSON.parse(row.action_payload_json);
+    } catch {}
+
+    let inbox_event_ids: number[] | null = null;
+    try {
+      if (row.inbox_event_ids_json) inbox_event_ids = JSON.parse(row.inbox_event_ids_json);
+    } catch {}
+
+    return {
+      decision_id: row.decision_id,
+      run_id: row.run_id,
+      turn_number: row.turn_number,
+      decision_type: row.decision_type,
+      rationale: row.rationale || undefined,
+      task_id: row.task_id || null,
+      action_payload,
+      inbox_event_ids,
+      created_at: row.created_at,
+    };
+  }
+}
+
+
 export interface IdempotencyRecord {
   idempotency_key: string;
   call_id: string;

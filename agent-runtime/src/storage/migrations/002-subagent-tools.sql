@@ -55,3 +55,17 @@ CREATE TABLE IF NOT EXISTS host_inbox (
 );
 CREATE INDEX IF NOT EXISTS idx_host_inbox_run_status ON host_inbox(run_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_host_inbox_run_seq ON host_inbox(run_id, event_seq) WHERE event_seq IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS host_decisions (
+    decision_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    turn_number INTEGER NOT NULL,
+    decision_type TEXT NOT NULL,
+    rationale TEXT,
+    task_id TEXT,
+    action_payload_json TEXT,
+    inbox_event_ids_json TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_host_decisions_run ON host_decisions(run_id);
+

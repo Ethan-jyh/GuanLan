@@ -17,6 +17,7 @@ export interface HostAgentOptions {
 
 export class HostAgent {
   private adapter: PiAgentAdapter;
+  private running = false;
 
   constructor(public options: HostAgentOptions) {
     const allTools = [options.delegateTool, ...(options.additionalTools || [])];
@@ -34,8 +35,17 @@ export class HostAgent {
     });
   }
 
+  get isBusy(): boolean {
+    return this.running;
+  }
+
   async run(prompt: string): Promise<PiAgentResult> {
-    return this.adapter.run(prompt);
+    this.running = true;
+    try {
+      return await this.adapter.run(prompt);
+    } finally {
+      this.running = false;
+    }
   }
 
   get state() {

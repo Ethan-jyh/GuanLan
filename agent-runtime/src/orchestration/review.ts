@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { ResearchDatabase } from '../storage/database.js';
 import {
   RunRepository,
   TaskRepository,
   ReviewRepository,
+  HostDecisionRepository,
+  type HostDecisionRecord,
 } from '../storage/repositories.js';
 import { SubmissionManager } from './submissions.js';
 import {
@@ -173,5 +176,76 @@ export class ReviewManager {
     }
 
     return { ok: true, reason: 'Release gate check passed' };
+  }
+}
+
+export interface StageReviewDecisionInput {
+  decision_id?: string;
+  run_id: string;
+  turn_number?: number;
+  decision_type: string;
+  rationale?: string;
+  task_id?: string | null;
+  action_payload?: Record<string, unknown> | null;
+  inbox_event_ids?: number[] | null;
+  created_at?: string;
+}
+
+export class StageReviewManager {
+  private runRepo: RunRepository;
+  private taskRepo: TaskRepository;
+  private hostDecisionRepo: HostDecisionRepository;
+
+  constructor(
+    private db: ResearchDatabase,
+    runRepo?: RunRepository,
+    taskRepo?: TaskRepository,
+    hostDecisionRepo?: HostDecisionRepository
+  ) {
+    this.runRepo = runRepo || new RunRepository(this.db);
+    this.taskRepo = taskRepo || new TaskRepository(this.db);
+    this.hostDecisionRepo = hostDecisionRepo || new HostDecisionRepository(this.db);
+  }
+
+  public recordDecision(input: StageReviewDecisionInput): HostDecisionRecord {
+    const turnNumber = input.turn_number ?? (this.getDecisionCount(input.run_id) + 1);
+    const decisionId =
+      input.decision_id || `hdec-${input.run_id}-t${turnNumber}-${randomUUID().substring(0, 6)}`;
+    const nowIso = input.created_at || new Date().toISOString();
+
+    const record: HostDecisionRecord = {
+      decision_id: decisionId,
+      run_id: input.run_id,
+      turn_number: turnNumber,
+      decision_type: input.decision_type,
+      rationale: input.rationale,
+      task_id: input.task_id || null,
+      action_payload: input.action_payload || null,
+      inbox_event_ids: input.inbox_event_ids || null,
+      created_at: nowIso,
+    };
+
+    this.hostDecisionRepo.saveDecision(record);
+    return record;
+  }
+
+  public getDecisionCount(run_id: string): number {
+    return this.hostDecisionRepo.getDecisionCount(run_id);
+  }
+
+  public listDecisions(run_id: string): HostDecisionRecord[] {
+    return this.hostDecisionRepo.listDecisions(run_id);
+  }
+
+  public getLatestDecision(run_id: string): HostDecisionRecord | null {
+    return this.hostDecisionRepo.getLatestDecision(run_id);
+  }
+
+  public isDecisionCapReached(run_id: string, maxDecisions = 12): boolean {
+    return this.getDecisionCount(run_id) >= maxDecisions;
+  }
+
+  public pauseRunOnCapReached(run_id: string, reason = 'HOST stage decision cap reached'): void {
+    this.runRepo.updateRunStatus(run_id, RunStatus.Paused);
   }
 }
