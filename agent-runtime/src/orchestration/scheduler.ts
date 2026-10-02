@@ -31,3 +31,11 @@ export class TaskScheduler {
     return results;
   }
 }
+
+export { ResearchWorkerPool } from './research-worker.js';
+export type {
+  ResearchWorkerPoolOptions,
+  WorkerTaskItem,
+  WorkerTaskContext,
+} from './research-worker.js';
+

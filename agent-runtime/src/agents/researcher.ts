@@ -35,8 +35,19 @@ export class ResearcherAgent {
     });
   }
 
-  async run(prompt: string): Promise<PiAgentResult> {
+  async run(prompt: string, signal?: AbortSignal): Promise<PiAgentResult> {
+    if (signal) {
+      if (signal.aborted) {
+        this.abort();
+      } else {
+        signal.addEventListener('abort', () => this.abort(), { once: true });
+      }
+    }
     return this.adapter.run(prompt);
+  }
+
+  public abort(): void {
+    this.adapter.abort();
   }
 
   get state() {

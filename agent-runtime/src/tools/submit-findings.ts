@@ -1,7 +1,21 @@
 import type { ResearchToolDefinition } from '../runtime/pi-adapter.js';
 
+export interface SubmitFindingsContext {
+  run_id: string;
+  task_id: string;
+  attempt_id: string;
+  role: string;
+  execution_version: number;
+}
+
+export type SubmitFindingsHandler = (
+  findings: any,
+  context?: SubmitFindingsContext
+) => Promise<{ ok: boolean; submissionId?: string; error?: string }>;
+
 export function createSubmitFindingsTool(
-  onSubmit: (findings: any) => Promise<{ ok: boolean; submissionId?: string; error?: string }>
+  onSubmit: SubmitFindingsHandler,
+  context?: SubmitFindingsContext
 ): ResearchToolDefinition {
   return {
     name: 'submit_findings',
@@ -34,7 +48,37 @@ export function createSubmitFindingsTool(
         throw new Error('Missing findings payload in submit_findings');
       }
 
-      const res = await onSubmit(params.findings);
+      if (context) {
+        // Enforce role isolation
+        if (params.findings.role && params.findings.role !== context.role) {
+          throw new Error(
+            `Submission rejected: Role mismatch (expected '${context.role}', got '${params.findings.role}')`
+          );
+        }
+
+        // Enforce task isolation
+        if (params.findings.task_id && params.findings.task_id !== context.task_id) {
+          throw new Error(
+            `Submission rejected: Task_id mismatch (expected '${context.task_id}', got '${params.findings.task_id}')`
+          );
+        }
+
+        // Enforce run isolation
+        if (params.findings.run_id && params.findings.run_id !== context.run_id) {
+          throw new Error(
+            `Submission rejected: Run_id mismatch (expected '${context.run_id}', got '${params.findings.run_id}')`
+          );
+        }
+
+        // Guarantee immutable bound context on findings
+        params.findings.role = context.role;
+        params.findings.task_id = context.task_id;
+        params.findings.run_id = context.run_id;
+        params.findings.attempt_id = context.attempt_id;
+        params.findings.execution_version = context.execution_version;
+      }
+
+      const res = await onSubmit(params.findings, context);
       if (!res.ok) {
         throw new Error(`Submission rejected: ${res.error || 'Unknown error'}`);
       }

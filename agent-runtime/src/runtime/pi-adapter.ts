@@ -177,7 +177,12 @@ export class PiAgentAdapter {
     };
   }
 
+  public abort(): void {
+    this.agent.abort();
+  }
+
   get state() {
     return this.agent.state;
   }
 }
+
