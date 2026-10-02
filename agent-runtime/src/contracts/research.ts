@@ -8,6 +8,7 @@ export * from './task.js';
 export * from './evidence.js';
 export * from './review.js';
 export * from './artifact.js';
+export * from './research-job.js';
 
 import { ResearchRole } from './task.js';
 import { ResearchRun, parseRun } from './run.js';
