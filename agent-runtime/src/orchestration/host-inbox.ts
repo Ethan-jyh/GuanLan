@@ -340,15 +340,25 @@ export class HostInboxDispatcher {
       return;
     }
 
+    let turnSucceeded = false;
     const invocationPromise = (async () => {
       try {
         await this.executeTurn(runId);
+        turnSucceeded = true;
       } finally {
         this.activeInvocations.delete(runId);
 
-        // Process queued events that arrived while HOST was running
-        if (this.rerunQueued.has(runId) || this.hostInboxRepo.listPending(runId).length > 0) {
+        // If cap is reached, do not spin re-triggering
+        if (this.stageReviewMgr.isDecisionCapReached(runId, this.maxDecisionsPerRun)) {
           this.rerunQueued.delete(runId);
+        } else if (turnSucceeded && (this.rerunQueued.has(runId) || this.hostInboxRepo.listPending(runId).length > 0)) {
+          // Process queued events that arrived while HOST was running
+          this.rerunQueued.delete(runId);
+          const timer = this.debounceTimers.get(runId);
+          if (timer) {
+            clearTimeout(timer);
+            this.debounceTimers.delete(runId);
+          }
           // Trigger next turn
           this.triggerDispatch(runId).catch((err) => {
             console.error(`[HostInboxDispatcher] error in follow-up turn for ${runId}:`, err);
@@ -362,13 +372,7 @@ export class HostInboxDispatcher {
   }
 
   private async executeTurn(runId: string): Promise<void> {
-    // 1. Claim pending inbox events
-    const claimed = this.hostInboxRepo.claimPending(runId);
-    if (claimed.length === 0) {
-      return;
-    }
-
-    // 2. Decision cap check (default 12)
+    // 1. Decision cap check (default 12) BEFORE claiming events to avoid stranding
     const currentDecisions = this.stageReviewMgr.getDecisionCount(runId);
     if (currentDecisions >= this.maxDecisionsPerRun) {
       this.runRepo.updateRunStatus(runId, RunStatus.Paused);
@@ -378,6 +382,12 @@ export class HostInboxDispatcher {
           `Decision cap reached: ${currentDecisions} / ${this.maxDecisionsPerRun}`
         );
       }
+      return;
+    }
+
+    // 2. Claim pending inbox events
+    const claimed = this.hostInboxRepo.claimPending(runId);
+    if (claimed.length === 0) {
       return;
     }
 
@@ -417,13 +427,23 @@ export class HostInboxDispatcher {
     const prompt = formatHostPrompt(runId, pendingEventsWithData, snapshot);
 
     if (!this.hostAgent) {
-      // If hostAgent not configured, mark events processed and exit
+      // If hostAgent not configured, mark events processed, clean cache, and exit
       this.hostInboxRepo.markBatchProcessed(claimed.map((c) => c.inbox_id));
+      for (const c of claimed) {
+        this.eventPayloadCache.delete(c.inbox_id);
+      }
       return;
     }
 
-    // 6. Invoke host agent
-    const result = await this.hostAgent.run(prompt);
+    // 6. Invoke host agent (wrapped in try/catch to unclaim on failure)
+    let result: PiAgentResult;
+    try {
+      result = await this.hostAgent.run(prompt);
+    } catch (err) {
+      // Unclaim claimed events so they are not stranded in 'claimed'
+      this.hostInboxRepo.unclaimBatch(claimed.map((c) => c.inbox_id));
+      throw err;
+    }
 
     // 7. Parse decision
     const parsedDecision = this.extractDecision(result);
@@ -439,8 +459,11 @@ export class HostInboxDispatcher {
       inbox_event_ids: claimed.map((c) => c.inbox_id),
     });
 
-    // 9. Mark claimed inbox records as processed in SQLite
+    // 9. Mark claimed inbox records as processed in SQLite & clean payload cache
     this.hostInboxRepo.markBatchProcessed(claimed.map((c) => c.inbox_id));
+    for (const c of claimed) {
+      this.eventPayloadCache.delete(c.inbox_id);
+    }
 
     // Also mark outbox events delivered if present
     const outboxIds = claimed
@@ -550,25 +573,46 @@ export class HostInboxDispatcher {
 
     // Inspect text content
     const text = (result.finalText || '').toLowerCase();
-    if (text.includes('accept') || text.includes('接受')) {
-      return { decision_type: 'accept', rationale: result.finalText };
-    }
+
+    // 1. Follow-up / Revise takes priority
     if (
       text.includes('follow-up') ||
       text.includes('follow_up') ||
       text.includes('补查') ||
-      text.includes('revise')
+      text.includes('revise') ||
+      text.includes('定向补查')
     ) {
       return { decision_type: 'follow_up', rationale: result.finalText };
     }
+
+    // 2. Request release / Approve takes priority over simple accept
     if (
       text.includes('request_release') ||
       text.includes('request release') ||
+      text.includes('申请放行') ||
+      text.includes('申请专报放行') ||
       text.includes('放行') ||
       text.includes('approve')
     ) {
       return { decision_type: 'request_release', rationale: result.finalText };
     }
+
+    // 3. Accept with negative qualifier guards
+    const hasNegativeAccept =
+      text.includes('不接受') ||
+      text.includes('暂不接受') ||
+      text.includes('拒绝') ||
+      text.includes('未通过') ||
+      text.includes('不予接收') ||
+      text.includes('not accept') ||
+      text.includes("don't accept") ||
+      text.includes('cannot accept');
+
+    if (!hasNegativeAccept && (text.includes('accept') || text.includes('接受') || text.includes('接收'))) {
+      return { decision_type: 'accept', rationale: result.finalText };
+    }
+
+    // 4. Wait
     if (text.includes('wait') || text.includes('等待')) {
       return { decision_type: 'wait', rationale: result.finalText };
     }

@@ -858,6 +858,22 @@ export class HostInboxRepository {
       .run(nowIso, ...inbox_ids);
   }
 
+  public unclaim(inbox_id: number): void {
+    this.db.raw
+      .prepare("UPDATE host_inbox SET status = 'pending', claimed_at = NULL WHERE inbox_id = ?")
+      .run(inbox_id);
+  }
+
+  public unclaimBatch(inbox_ids: number[]): void {
+    if (inbox_ids.length === 0) return;
+    const placeholders = inbox_ids.map(() => '?').join(', ');
+    this.db.raw
+      .prepare(
+        `UPDATE host_inbox SET status = 'pending', claimed_at = NULL WHERE inbox_id IN (${placeholders})`
+      )
+      .run(...inbox_ids);
+  }
+
   public listPending(run_id: string): HostInboxRecord[] {
     const rows = this.db.raw
       .prepare("SELECT * FROM host_inbox WHERE run_id = ? AND status = 'pending' ORDER BY inbox_id ASC")

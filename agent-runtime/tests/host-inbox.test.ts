@@ -702,5 +702,205 @@ describe('Task 5: HOST Serialized Inbox Dispatcher & Stage Review', () => {
 
       dispatcher.destroy();
     });
+
+    it('should unclaim batch back to pending when hostAgent.run throws an exception', async () => {
+      const runId = 'run-unclaim-err';
+      setupTestRun(runId);
+
+      const dummyDelegate = createDelegateResearchTool(async () => ({ ok: true, handles: [] }));
+      const hostAgent = createHostAgent({
+        delegateTool: dummyDelegate,
+        streamFn: createScriptedStreamFn([{ text: 'OK' }]),
+      });
+
+      hostAgent.run = async (): Promise<PiAgentResult> => {
+        throw new Error('LLM service unavailable 503');
+      };
+
+      const dispatcher = new HostInboxDispatcher({
+        db,
+        hostAgent,
+        debounceMs: 15,
+      });
+
+      const inboxId = dispatcher.enqueueEvent({
+        run_id: runId,
+        task_id: `task-auth-${runId}`,
+        event_type: 'research_outcome',
+        payload: { outcome: { task_id: `task-auth-${runId}` } },
+      });
+
+      // Wait for debounce and failed invocation
+      await new Promise((r) => setTimeout(r, 45));
+
+      // Assert event is rolled back to 'pending' and claimed_at is reset
+      const inboxEvents = hostInboxRepo.listByRun(runId);
+      assert.equal(inboxEvents.length, 1);
+      assert.equal(inboxEvents[0].inbox_id, inboxId);
+      assert.equal(inboxEvents[0].status, 'pending', 'Event must be rolled back to pending on error');
+      assert.equal(inboxEvents[0].claimed_at, null, 'claimed_at must be reset to null');
+
+      dispatcher.destroy();
+    });
+
+    it('should check decision cap BEFORE claiming events so pending events are not stranded in claimed', async () => {
+      const runId = 'run-cap-unclaimed';
+      setupTestRun(runId);
+
+      const dummyDelegate = createDelegateResearchTool(async () => ({ ok: true, handles: [] }));
+      const hostAgent = createHostAgent({
+        delegateTool: dummyDelegate,
+        streamFn: createScriptedStreamFn([{ text: '决策完成' }]),
+      });
+
+      const stageReviewMgr = new StageReviewManager(db, runRepo, taskRepo, hostDecisionRepo);
+      // Pre-seed 2 decisions so maxDecisionsPerRun=2 is already reached
+      stageReviewMgr.recordDecision({ run_id: runId, turn_number: 1, decision_type: 'wait' });
+      stageReviewMgr.recordDecision({ run_id: runId, turn_number: 2, decision_type: 'wait' });
+      assert.equal(stageReviewMgr.getDecisionCount(runId), 2);
+
+      const dispatcher = new HostInboxDispatcher({
+        db,
+        hostAgent,
+        stageReviewManager: stageReviewMgr,
+        debounceMs: 15,
+        maxDecisionsPerRun: 2,
+      });
+
+      // Enqueue an event when cap is already reached
+      const inboxId = dispatcher.enqueueEvent({
+        run_id: runId,
+        task_id: `task-evo-${runId}`,
+        event_type: 'research_outcome',
+        payload: { outcome: { task_id: `task-evo-${runId}` } },
+      });
+
+      await new Promise((r) => setTimeout(r, 45));
+
+      // Verify event remains 'pending', not stuck in 'claimed'
+      const inboxEvents = hostInboxRepo.listByRun(runId);
+      assert.equal(inboxEvents.length, 1);
+      assert.equal(inboxEvents[0].inbox_id, inboxId);
+      assert.equal(inboxEvents[0].status, 'pending', 'Event must remain pending when decision cap was hit');
+      assert.equal(inboxEvents[0].claimed_at, null);
+
+      dispatcher.destroy();
+    });
+
+    it('should clean up eventPayloadCache entries after events are processed', async () => {
+      const runId = 'run-cache-clean';
+      setupTestRun(runId);
+
+      const dummyDelegate = createDelegateResearchTool(async () => ({ ok: true, handles: [] }));
+      const hostAgent = createHostAgent({
+        delegateTool: dummyDelegate,
+        streamFn: createScriptedStreamFn([{ text: '接受成果' }]),
+      });
+
+      const dispatcher = new HostInboxDispatcher({
+        db,
+        hostAgent,
+        debounceMs: 15,
+      });
+
+      const inboxId = dispatcher.enqueueEvent({
+        run_id: runId,
+        task_id: `task-fb-${runId}`,
+        event_type: 'research_outcome',
+        payload: { outcome: { task_id: `task-fb-${runId}`, role: 'feedback', status: 'succeeded' } },
+      });
+
+      // Verify cache had the entry initially
+      assert.equal((dispatcher as any).eventPayloadCache.has(inboxId), true);
+
+      // Wait for turn to process
+      await new Promise((r) => setTimeout(r, 45));
+
+      // Verify cache entry was deleted after processing to prevent memory leak
+      assert.equal((dispatcher as any).eventPayloadCache.has(inboxId), false, 'Payload cache must be cleaned up');
+
+      dispatcher.destroy();
+    });
+
+    it('should correctly parse decisions with negative qualifiers and prioritize follow-up over false-positive accept', async () => {
+      const runId = 'run-parser-harden';
+      setupTestRun(runId);
+
+      const dummyDelegate = createDelegateResearchTool(async () => ({ ok: true, handles: [] }));
+      const hostAgent = createHostAgent({
+        delegateTool: dummyDelegate,
+        streamFn: createScriptedStreamFn([{ text: 'OK' }]),
+      });
+
+      const stageReviewMgr = new StageReviewManager(db, runRepo, taskRepo, hostDecisionRepo);
+      const dispatcher = new HostInboxDispatcher({
+        db,
+        hostAgent,
+        stageReviewManager: stageReviewMgr,
+        debounceMs: 15,
+      });
+
+      // Test 1: "暂不接受，需要定向补查" -> MUST be follow_up, NOT accept
+      hostAgent.run = async (): Promise<PiAgentResult> => ({
+        finalText: '经审议暂不接受该演化分析成果，因为缺少时间窗口离散点，需要对指定问题定向补查。',
+        messages: [],
+        events: [],
+      });
+
+      dispatcher.enqueueEvent({
+        run_id: runId,
+        task_id: `task-evo-${runId}`,
+        event_type: 'research_outcome',
+        payload: { outcome: { task_id: `task-evo-${runId}`, status: 'partial' } },
+      });
+
+      await new Promise((r) => setTimeout(r, 45));
+
+      const d1 = stageReviewMgr.getLatestDecision(runId);
+      assert.ok(d1);
+      assert.equal(d1.decision_type, 'follow_up', 'Negative qualifier "暂不接受" with "定向补查" must produce follow_up');
+
+      // Test 2: "申请专报放行" -> MUST be request_release
+      hostAgent.run = async (): Promise<PiAgentResult> => ({
+        finalText: '所有核心事实与各方证据均已齐备，申请专报放行。',
+        messages: [],
+        events: [],
+      });
+
+      dispatcher.enqueueEvent({
+        run_id: runId,
+        task_id: `task-auth-${runId}`,
+        event_type: 'research_outcome',
+        payload: { outcome: { task_id: `task-auth-${runId}`, status: 'succeeded' } },
+      });
+
+      await new Promise((r) => setTimeout(r, 45));
+
+      const d2 = stageReviewMgr.getLatestDecision(runId);
+      assert.ok(d2);
+      assert.equal(d2.decision_type, 'request_release', 'Must recognize request_release');
+
+      // Test 3: "拒绝接收该成果" (without follow-up) -> MUST be wait, NOT accept
+      hostAgent.run = async (): Promise<PiAgentResult> => ({
+        finalText: '样本量严重不足，拒绝接收该反馈成果。',
+        messages: [],
+        events: [],
+      });
+
+      dispatcher.enqueueEvent({
+        run_id: runId,
+        task_id: `task-fb-${runId}`,
+        event_type: 'research_outcome',
+        payload: { outcome: { task_id: `task-fb-${runId}`, status: 'failed' } },
+      });
+
+      await new Promise((r) => setTimeout(r, 45));
+
+      const d3 = stageReviewMgr.getLatestDecision(runId);
+      assert.ok(d3);
+      assert.notEqual(d3.decision_type, 'accept', 'Must NOT parse "拒绝接收" as accept');
+
+      dispatcher.destroy();
+    });
   });
 });
