@@ -139,10 +139,23 @@ describe('Task 5: Local Research Tools & Registry Migration', () => {
       assert.ok(res.denominator_info.includes('50'));
     });
 
-    it('should analyze sentiment distribution', async () => {
-      const res = await analyzeSentiment({
-        texts: ['抢险迅速点赞', '路面积水什么时候退', '上班迟到了'],
+    it('should analyze sentiment distribution with target and provider', async () => {
+      const mockProvider = async (p: { text: string }) => ({
+        ok: true,
+        choice: p.text.includes('点赞') ? ('positive' as const) : ('neutral' as const),
+        confidence: 0.9,
+        actualModel: 'jev-test',
+        questionVersion: 'q1',
+        attempts: 1,
       });
+
+      const res = await analyzeSentiment(
+        {
+          texts: ['抢险迅速点赞', '路面积水什么时候退', '上班迟到了'],
+          target: '防汛应急响应',
+        },
+        { provider: mockProvider }
+      );
 
       assert.equal(res.status, 'success');
       assert.equal(res.count, 3);

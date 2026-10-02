@@ -54,6 +54,38 @@ export class CallLedger {
     return res;
   }
 
+  public beginSubCall(params: {
+    parent_call_id: string;
+    sub_call_id: string;
+    units?: number;
+    call_type?: string;
+  }): ReserveResult {
+    const parent = this.activeCalls.get(params.parent_call_id);
+    if (!parent) {
+      return { ok: false, error: `Parent call ${params.parent_call_id} not found` };
+    }
+
+    const res = this.budgetLedger.reserve({
+      run_id: parent.run_id,
+      task_id: parent.task_id,
+      units: params.units ?? 1,
+      call_type: params.call_type ?? `${parent.tool_name}:http`,
+    });
+
+    if (res.ok && res.reservation_id) {
+      this.activeCalls.set(params.sub_call_id, {
+        run_id: parent.run_id,
+        task_id: parent.task_id,
+        call_id: params.sub_call_id,
+        tool_name: `${parent.tool_name}:sub`,
+        reservation_id: res.reservation_id,
+        started_at: new Date().toISOString(),
+      });
+    }
+
+    return res;
+  }
+
   public endCall(params: EndCallParams): void {
     const active = this.activeCalls.get(params.call_id);
     if (!active) return;

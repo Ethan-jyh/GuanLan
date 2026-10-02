@@ -4,7 +4,7 @@ import type { ResearchToolDefinition } from '../runtime/pi-adapter.js';
 import { searchWeb, SearchBackendFn } from './search.js';
 import { readSource, FetchBackendFn } from './read-source.js';
 import { queryPosts, QueryPostsBackendFn } from './database.js';
-import { queryComments, analyzeSentiment } from './feedback.js';
+import { queryComments, analyzeSentiment, SentimentClassificationProvider } from './feedback.js';
 import { getTimeline, TimelineBackendFn } from './timeline.js';
 
 export interface ExecutionContext {
@@ -17,6 +17,7 @@ export class LocalToolRegistry {
   private fetchBackend?: FetchBackendFn;
   private queryBackend?: QueryPostsBackendFn;
   private timelineBackend?: TimelineBackendFn;
+  private sentimentProvider?: SentimentClassificationProvider;
 
   constructor(private evidenceStore?: EvidenceStore) {}
 
@@ -34,6 +35,10 @@ export class LocalToolRegistry {
 
   public setTimelineBackend(fn: TimelineBackendFn) {
     this.timelineBackend = fn;
+  }
+
+  public setSentimentProvider(fn: SentimentClassificationProvider) {
+    this.sentimentProvider = fn;
   }
 
   public async executeTool(
@@ -61,7 +66,11 @@ export class LocalToolRegistry {
       case 'query_comments':
         return await queryComments(args);
       case 'analyze_sentiment':
-        return await analyzeSentiment(args);
+        return await analyzeSentiment(args, {
+          provider: this.sentimentProvider,
+          parentCallId: context?.call_id,
+          runId,
+        });
       case 'get_timeline':
         return await getTimeline(args, this.timelineBackend);
       default:
@@ -138,7 +147,7 @@ export class LocalToolRegistry {
       },
       {
         name: 'analyze_sentiment',
-        description: '对批量文本集合执行情绪极性分布统计（正面、中立、负面）',
+        description: '对批量文本集合执行针对指定评价目标（target）的情感分类统计（支持 positive, neutral, negative, mixed, uncertain），并返回置信度与严格样本分母',
         parameters: {
           type: 'object',
           properties: {
@@ -147,8 +156,16 @@ export class LocalToolRegistry {
               items: { type: 'string' },
               description: '待分析文本列表',
             },
+            target: {
+              type: 'string',
+              description: '明确的评价对象/实体（如特定政策、官方通报、涉事主体等）',
+            },
+            context: {
+              type: 'string',
+              description: '可选的事件背景信息，辅助消除指代歧义',
+            },
           },
-          required: ['texts'],
+          required: ['texts', 'target'],
         },
         execute: async (args: any, context?: any) => {
           return await this.executeTool('analyze_sentiment', args, context);

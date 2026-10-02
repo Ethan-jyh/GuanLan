@@ -217,6 +217,7 @@ checkpoints/
 # *.pickle
 *.json.gz
 *.jsonl
+!evaluation/**/*.jsonl
 *.parquet
 
 # 数据集目录

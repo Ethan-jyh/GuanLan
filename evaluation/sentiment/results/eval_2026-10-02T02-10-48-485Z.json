@@ -1,0 +1,294 @@
+{
+  "baseline": {
+    "timestamp": "2026-10-02T02:10:48.480Z",
+    "split": "all",
+    "provider": "baseline",
+    "threshold": 0.6,
+    "total_samples": 37,
+    "classified_count": 37,
+    "uncertain_count": 0,
+    "coverage_rate": 1,
+    "uncertainty_rate": 0,
+    "accepted_accuracy": 0.40540540540540543,
+    "macro_f1_3class": 0.496415770609319,
+    "macro_f1_5class": 0.2978494623655914,
+    "confusion_matrix": {
+      "positive": {
+        "positive": 5,
+        "neutral": 4,
+        "negative": 1,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "neutral": {
+        "positive": 0,
+        "neutral": 5,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "negative": {
+        "positive": 0,
+        "neutral": 9,
+        "negative": 5,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "mixed": {
+        "positive": 0,
+        "neutral": 4,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "insufficient": {
+        "positive": 0,
+        "neutral": 4,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      }
+    },
+    "per_class_metrics": {
+      "positive": {
+        "precision": 1,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "tp": 5,
+        "fp": 0,
+        "fn": 5
+      },
+      "neutral": {
+        "precision": 0.19230769230769232,
+        "recall": 1,
+        "f1": 0.32258064516129037,
+        "tp": 5,
+        "fp": 21,
+        "fn": 0
+      },
+      "negative": {
+        "precision": 0.8333333333333334,
+        "recall": 0.35714285714285715,
+        "f1": 0.5,
+        "tp": 5,
+        "fp": 1,
+        "fn": 9
+      },
+      "mixed": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 4
+      },
+      "insufficient": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 4
+      }
+    },
+    "category_accuracies": {
+      "negation": {
+        "total": 4,
+        "correct": 1,
+        "rate": 0.25
+      },
+      "irony": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "short_text": {
+        "total": 8,
+        "correct": 6,
+        "rate": 0.75
+      },
+      "mixed": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "insufficient": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "multi_target": {
+        "total": 4,
+        "correct": 1,
+        "rate": 0.25
+      },
+      "fact_neutral": {
+        "total": 3,
+        "correct": 3,
+        "rate": 1
+      },
+      "standard_positive": {
+        "total": 3,
+        "correct": 2,
+        "rate": 0.6666666666666666
+      },
+      "standard_negative": {
+        "total": 3,
+        "correct": 2,
+        "rate": 0.6666666666666666
+      }
+    },
+    "conservation_verified": true
+  },
+  "jev": {
+    "timestamp": "2026-10-02T02:10:48.484Z",
+    "split": "all",
+    "provider": "mock",
+    "threshold": 0.6,
+    "total_samples": 37,
+    "classified_count": 0,
+    "uncertain_count": 0,
+    "coverage_rate": 0,
+    "uncertainty_rate": 0,
+    "accepted_accuracy": 0,
+    "macro_f1_3class": 0,
+    "macro_f1_5class": 0,
+    "confusion_matrix": {
+      "positive": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "neutral": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "negative": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "mixed": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      },
+      "insufficient": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0,
+        "mixed": 0,
+        "insufficient": 0,
+        "uncertain": 0
+      }
+    },
+    "per_class_metrics": {
+      "positive": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "neutral": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "negative": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "mixed": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "insufficient": {
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      }
+    },
+    "category_accuracies": {
+      "negation": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "irony": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "short_text": {
+        "total": 8,
+        "correct": 0,
+        "rate": 0
+      },
+      "mixed": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "insufficient": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "multi_target": {
+        "total": 4,
+        "correct": 0,
+        "rate": 0
+      },
+      "fact_neutral": {
+        "total": 3,
+        "correct": 0,
+        "rate": 0
+      },
+      "standard_positive": {
+        "total": 3,
+        "correct": 0,
+        "rate": 0
+      },
+      "standard_negative": {
+        "total": 3,
+        "correct": 0,
+        "rate": 0
+      }
+    },
+    "conservation_verified": false
+  }
+}

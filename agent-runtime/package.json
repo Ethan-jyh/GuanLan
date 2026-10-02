@@ -8,7 +8,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/src/server.js",
-    "test": "node --test dist/tests/**/*.test.js"
+    "test": "node --test dist/tests/**/*.test.js",
+    "evaluate:sentiment": "node --experimental-strip-types ../evaluation/sentiment/run.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.99.2",
