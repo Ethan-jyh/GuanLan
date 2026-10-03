@@ -17,6 +17,7 @@ import {
 } from './review.js';
 import { RunStatus, TaskStatus } from '../contracts/research.js';
 import type { PiAgentResult } from '../runtime/pi-adapter.js';
+import { runExecutionContext } from '../tools/research-tools.js';
 
 export { StageReviewManager, type StageReviewDecisionInput };
 
@@ -50,6 +51,9 @@ export interface HostPromptOutcomeItem {
 }
 
 export interface HostPromptSnapshot {
+  topic?: string;
+  scope?: string | Record<string, unknown>;
+  initialPrompt?: string;
   tasks: HostPromptTaskItem[];
   outcomes?: HostPromptOutcomeItem[];
   budget?: {
@@ -78,6 +82,44 @@ export function formatHostPrompt(
   snapshot?: HostPromptSnapshot
 ): string {
   const sections: string[] = [];
+
+  // 0. 【研判主题与背景】
+  let topicStr = snapshot?.topic;
+  let scopeStr =
+    typeof snapshot?.scope === 'object'
+      ? JSON.stringify(snapshot?.scope)
+      : snapshot?.scope ? String(snapshot.scope) : undefined;
+  let promptGuidance = snapshot?.initialPrompt;
+
+  if (!topicStr || !scopeStr || !promptGuidance) {
+    for (const ev of pendingEvents) {
+      if (!topicStr && ev.payload?.topic) topicStr = String(ev.payload.topic);
+      if (!scopeStr && ev.payload?.scope) {
+        scopeStr =
+          typeof ev.payload.scope === 'object'
+            ? JSON.stringify(ev.payload.scope)
+            : String(ev.payload.scope);
+      }
+      if (!promptGuidance && ev.payload?.prompt) promptGuidance = String(ev.payload.prompt);
+    }
+  }
+
+  const topicLines: string[] = [];
+  topicLines.push(`- 研判主题: ${topicStr || '未指定研判主题'}`);
+  if (scopeStr) {
+    topicLines.push(`- 研判范围/边界: ${scopeStr}`);
+  }
+  if (promptGuidance) {
+    topicLines.push(`- 提示指引: ${promptGuidance}`);
+  }
+
+  const hasTasks = Boolean(snapshot?.tasks && snapshot.tasks.length > 0);
+  if (!hasTasks) {
+    topicLines.push(
+      `- 任务状态: 初始阶段，尚未创建研究任务。请使用 research_authority、research_evolution、research_feedback 规划并派发第一轮研究任务。`
+    );
+  }
+  sections.push('【研判主题与背景】\n' + topicLines.join('\n'));
 
   // 1. 【本次变化】
   const changeLines: string[] = [];
@@ -127,12 +169,19 @@ export function formatHostPrompt(
       const crit = t.completion_criteria || '-';
       planLines.push(`| ${t.task_id} | ${t.role} | ${t.status} | ${crit} | ${isReq} |`);
     }
+    sections.push('【当前计划】\n' + planLines.join('\n'));
   } else {
     for (const ev of pendingEvents) {
-      planLines.push(`| ${ev.task_id || '-'} | research | ${ev.event_type || 'pending'} | - | 是 |`);
+      if (ev.task_id) {
+        planLines.push(`| ${ev.task_id} | research | ${ev.event_type || 'pending'} | - | 是 |`);
+      }
+    }
+    if (planLines.length > 2) {
+      sections.push('【当前计划】\n' + planLines.join('\n'));
+    } else {
+      sections.push('【当前计划】\n（尚未创建任何研究任务，等待 HOST 规划派发）');
     }
   }
-  sections.push('【当前计划】\n' + planLines.join('\n'));
 
   // 3. 【新成果】
   const outcomeLines: string[] = [];
@@ -199,12 +248,20 @@ export function formatHostPrompt(
   sections.push('【可用额度】\n' + budgetLines.join('\n'));
 
   // 5. 【请决定】
-  const decisionText = `【请决定】
+  let decisionText: string;
+  if (!hasTasks) {
+    decisionText = `【请决定】
+当前运行刚启动且无现有任务，请执行以下行动之一：
+1. 派发研究任务: 调用研究工具（如 research_authority, research_evolution, research_feedback）创建各维度的独立研究作业
+2. 委托研究 (delegate_research): 批量下发初始研究任务清单`;
+  } else {
+    decisionText = `【请决定】
 请根据上述最新进展与成果质量作出下一步决策：
 1. 接受成果 (accept): 确认已完成任务成果质量合格，予以接收
 2. 定向补查 (follow-up): 针对失败、存疑或关键依据缺失的任务发起定向补查
 3. 继续等待 (wait): 保持等待其余正在运行的研究任务完成
 4. 申请放行 (request release): 所有必要研究成果已具备，申请专报放行`;
+  }
   sections.push(decisionText);
 
   return sections.join('\n\n');
@@ -442,7 +499,9 @@ export class HostInboxDispatcher {
     // 6. Invoke host agent (wrapped in try/catch to unclaim on failure)
     let result: PiAgentResult;
     try {
-      result = await this.hostAgent.run(prompt);
+      result = await runExecutionContext.run({ run_id: runId }, async () => {
+        return await this.hostAgent!.run(prompt);
+      });
     } catch (err) {
       // Unclaim claimed events so they are not stranded in 'claimed'
       this.hostInboxRepo.unclaimBatch(claimed.map((c) => c.inbox_id));
@@ -488,6 +547,17 @@ export class HostInboxDispatcher {
     pendingEvents: Array<{ task_id?: string; payload: Record<string, unknown> }>,
     turnNumber: number
   ): HostPromptSnapshot {
+    const run = this.runRepo.getRun(runId);
+    let topic = run?.topic;
+    let scope = run?.scope;
+    let initialPrompt: string | undefined;
+
+    for (const ev of pendingEvents) {
+      if (ev.payload?.topic && !topic) topic = String(ev.payload.topic);
+      if (ev.payload?.scope && !scope) scope = ev.payload.scope as any;
+      if (ev.payload?.prompt && !initialPrompt) initialPrompt = String(ev.payload.prompt);
+    }
+
     const rawTasks = this.taskRepo.listTasks(runId);
     const tasks: HostPromptTaskItem[] = rawTasks.map((t) => ({
       task_id: t.task_id,
@@ -523,6 +593,9 @@ export class HostInboxDispatcher {
     }
 
     return {
+      topic,
+      scope,
+      initialPrompt,
       tasks,
       outcomes,
       budget: {

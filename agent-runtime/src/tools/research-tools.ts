@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ResearchToolDefinition } from '../runtime/pi-adapter.js';
 import type { ResearchDatabase } from '../storage/database.js';
 import {
@@ -19,6 +20,8 @@ import {
   ResearchSubagentRoleSchema,
 } from '../contracts/research.js';
 import { ResearchWorkerPool } from '../orchestration/research-worker.js';
+
+export const runExecutionContext = new AsyncLocalStorage<{ run_id: string }>();
 
 export type SubagentRole = ResearchSubagentRole | 'authority' | 'evolution' | 'feedback';
 
@@ -141,7 +144,8 @@ export function createResearchRoleTool(
         return await fn(roleStr, jobParams);
       }
 
-      const effectiveRunId = jobParams.run_id || opts.run_id || opts.workerPool?.activeRunId;
+      const contextRunId = runExecutionContext.getStore()?.run_id;
+      const effectiveRunId = jobParams.run_id || contextRunId || opts.run_id || opts.workerPool?.activeRunId;
 
       if (opts.workerPool) {
         return await opts.workerPool.enqueueTask(roleStr, jobParams, {

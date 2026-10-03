@@ -6,6 +6,7 @@ import type {
   TaskReceipt,
 } from '../contracts/research.js';
 import { ResearchWorkerPool } from '../orchestration/research-worker.js';
+import { runExecutionContext } from './research-tools.js';
 
 export interface PlannedTaskInput {
   role: 'authority' | 'evolution' | 'feedback';
@@ -117,8 +118,10 @@ export function createDelegateResearchTool(
 
           let receipt: TaskReceipt;
           if (opts.workerPool) {
+            const contextRunId = runExecutionContext.getStore()?.run_id;
+            const effectiveRunId = opts.run_id || contextRunId || opts.workerPool?.activeRunId;
             receipt = await opts.workerPool.enqueueTask(role, jobParams, {
-              run_id: opts.run_id,
+              run_id: effectiveRunId,
             });
           } else {
             receipt = await opts.enqueueTask!(role, jobParams);

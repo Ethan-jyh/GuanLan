@@ -28,6 +28,9 @@ import { ReleaseGate, type ReleaseVerificationResult } from './release-gate.js';
 import { HostAgent } from '../agents/host.js';
 import { ReportAgent } from '../agents/report.js';
 import { SseManager } from '../api/sse.js';
+import { buildReportInputFromSnapshot } from '../reporting/input.js';
+import { runExecutionContext } from '../tools/research-tools.js';
+import type { ReportJudgment } from '../contracts/artifact.js';
 
 export interface CoordinatorComponents {
   workerPool?: ResearchWorkerPool;
@@ -166,7 +169,9 @@ export class ResearchCoordinator {
       const prompt =
         initialPrompt ||
         `请针对研判主题【${run.topic}】开展多维度情报调研规划，调用相应研究工具进行任务派发。`;
-      await this.components.hostAgent.run(prompt);
+      await runExecutionContext.run({ run_id: runId }, async () => {
+        await this.components.hostAgent!.run(prompt);
+      });
     }
   }
 
@@ -230,7 +235,14 @@ export class ResearchCoordinator {
           error: errorPayload,
         });
 
-        this.taskRepo.updateTaskStatus(att.task_id, TaskStatus.Failed, nowIso);
+        const currentTask = this.taskRepo.getTask(att.task_id);
+        if (
+          currentTask &&
+          currentTask.status !== TaskStatus.Succeeded &&
+          currentTask.status !== TaskStatus.Partial
+        ) {
+          this.taskRepo.updateTaskStatus(att.task_id, TaskStatus.Failed, nowIso);
+        }
 
         if (this.outboxRepo) {
           this.outboxRepo.appendEvent({
@@ -311,7 +323,7 @@ export class ResearchCoordinator {
   public async requestRelease(
     runId: string,
     releaseRequest?: ReleaseRequest
-  ): Promise<ReleaseVerificationResult & { report?: any }> {
+  ): Promise<ReleaseVerificationResult & { report?: any; judgment?: ReportJudgment | null }> {
     if (!this.components.releaseGate) {
       throw new Error('ReleaseGate is not configured in ResearchCoordinator');
     }
@@ -322,11 +334,121 @@ export class ResearchCoordinator {
       return verification;
     }
 
-    // Released! Now invoke ReportAgent if present
+    // Released! Now invoke ReportAgent if present with formatted snapshot data
     let reportResult: any = null;
+    let submittedJudgment: ReportJudgment | null = null;
+
     if (this.components.reportAgent && verification.snapshot) {
-      const prompt = `请根据已通过门禁放行的不可变材料快照【${verification.snapshotId}】，生成最终综合研判专报并提交研判结论 (submit_judgment)。`;
-      reportResult = await this.components.reportAgent.run(prompt);
+      const run = this.getRun(runId);
+      const reportInput = buildReportInputFromSnapshot(verification.snapshot, {
+        topic: run?.topic,
+        scope: typeof run?.scope === 'object' ? (run.scope as any) : undefined,
+      });
+
+      const claimsStr = (reportInput.claims || [])
+        .map((c) => `- [${c.claim_id}]: ${c.statement} (证据: ${(c.evidence_ids || []).join(', ')})`)
+        .join('\n');
+
+      const evidenceStr = (reportInput.evidence_pool || [])
+        .map((e) => `- [${e.evidence_id}] 【${e.source_type}】${e.title || ''}: ${e.excerpt || ''}`)
+        .join('\n');
+
+      const findingsStr = Object.entries(reportInput.findings || {})
+        .map(([role, f]: [string, any]) => `- 【${role}】: ${typeof f === 'string' ? f : f.summary || JSON.stringify(f)}`)
+        .join('\n');
+
+      const prompt = [
+        `【不可变材料快照发布与综合研判指令】`,
+        `快照编号: ${verification.snapshotId}`,
+        `研判主题: ${run?.topic || '综合研判'}`,
+        `受限交付状态: ${verification.restricted ? '是 (包含豁免缺口: ' + (verification.gaps || []).join(', ') + ')' : '否 (全量通过)'}`,
+        `\n【各维度研究成果摘要】\n${findingsStr || '- 无独立成果摘要'}`,
+        `\n【已核验主张清单 (Claims)】\n${claimsStr || '- 无主张'}`,
+        `\n【证据库全集 (Evidence Pool)】\n${evidenceStr || '- 无证据'}`,
+        `\n请基于上述冻结材料快照生成多维情报综合研判专报，并调用 submit_judgment 工具提交结构化研判结论 (overall_interpretation, risks, recommendations, linked_claim_ids, linked_evidence_ids)。`
+      ].join('\n');
+
+      reportResult = await runExecutionContext.run({ run_id: runId }, async () => {
+        return await this.components.reportAgent!.run(prompt);
+      });
+
+      // Extract submitted judgment if present in tool calls
+      if (reportResult?.messages) {
+        for (const msg of reportResult.messages) {
+          const contents = Array.isArray((msg as any).content)
+            ? (msg as any).content
+            : [(msg as any).content];
+          for (const c of contents) {
+            if (
+              (c?.type === 'toolCall' || c?.type === 'tool_call') &&
+              c?.name === 'submit_judgment' &&
+              c?.arguments?.judgment
+            ) {
+              submittedJudgment = c.arguments.judgment;
+              break;
+            }
+          }
+          if (submittedJudgment) break;
+
+          if ((msg as any).toolCalls) {
+            for (const tc of (msg as any).toolCalls) {
+              if (tc.name === 'submit_judgment' && tc.arguments?.judgment) {
+                submittedJudgment = tc.arguments.judgment;
+                break;
+              }
+            }
+          }
+          if (submittedJudgment) break;
+        }
+      }
+
+      // Persist judgment to SQLite reviews/host_decisions if available
+      if (submittedJudgment) {
+        const db = this.components.db || (this.runRepo as any).db;
+        if (db) {
+          const nowIso = new Date().toISOString();
+          try {
+            const reviewId = `rev-report-${randomUUID().substring(0, 8)}`;
+            const currentRound = run?.current_round || 1;
+            db.raw.prepare(`
+              INSERT OR REPLACE INTO reviews (
+                review_id, run_id, task_id, round, decision, rationale,
+                directives_json, unresolved_issues_json, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              reviewId,
+              runId,
+              'report',
+              currentRound,
+              'Finalize',
+              submittedJudgment.overall_interpretation || 'Final report judgment',
+              JSON.stringify(submittedJudgment.recommendations || []),
+              JSON.stringify(submittedJudgment.risks || []),
+              nowIso
+            );
+          } catch {}
+
+          try {
+            const decisionId = `dec-judgment-${randomUUID().substring(0, 8)}`;
+            db.raw.prepare(`
+              INSERT INTO host_decisions (
+                decision_id, run_id, turn_number, decision_type, rationale,
+                task_id, action_payload_json, inbox_event_ids_json, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              decisionId,
+              runId,
+              999,
+              'finalize',
+              submittedJudgment.overall_interpretation || 'Final report judgment',
+              'report',
+              JSON.stringify(submittedJudgment),
+              JSON.stringify([]),
+              nowIso
+            );
+          } catch {}
+        }
+      }
     }
 
     // Update run status to Completed
@@ -337,12 +459,14 @@ export class ResearchCoordinator {
         snapshot_id: verification.snapshotId,
         restricted: verification.restricted,
         gaps: verification.gaps,
+        judgment: submittedJudgment,
       });
     }
 
     return {
       ...verification,
       report: reportResult,
+      judgment: submittedJudgment,
     };
   }
 

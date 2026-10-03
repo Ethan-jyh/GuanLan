@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { URL } from 'node:url';
+import { randomUUID } from 'node:crypto';
 
 import { createDatabase, ResearchDatabase } from './storage/database.js';
 import {
@@ -26,6 +27,7 @@ import { HostInboxDispatcher } from './orchestration/host-inbox.js';
 import { ReleaseGate } from './orchestration/release-gate.js';
 import { createHostAgent, HostAgent } from './agents/host.js';
 import { createReportAgent, ReportAgent, createSubmitJudgmentTool } from './agents/report.js';
+import type { ReportJudgment } from './contracts/artifact.js';
 import {
   createResearchAuthorityTool,
   createResearchEvolutionTool,
@@ -48,6 +50,7 @@ import type { StreamFn } from '@earendil-works/pi-agent-core';
 export interface RuntimeServerOptions {
   port?: number;
   dbPath?: string;
+  db?: ResearchDatabase;
   pythonBaseUrl?: string;
   internalToken?: string;
   workerPool?: ResearchWorkerPool;
@@ -68,7 +71,7 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
   const token = options.internalToken ?? 'guanlan-internal-secret';
 
   // Initialize SQLite persistence & domain layer
-  const db = createDatabase(dbPath);
+  const db = options.db || createDatabase(dbPath);
   const runRepo = new RunRepository(db);
   const taskRepo = new TaskRepository(db);
   const subRepo = new SubmissionRepository(db);
@@ -149,7 +152,33 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
     });
 
   // Report Agent
-  const submitJudgmentTool = createSubmitJudgmentTool(async (_judgment) => {
+  let lastReportJudgment: ReportJudgment | null = null;
+  const submitJudgmentTool = createSubmitJudgmentTool(async (judgment) => {
+    lastReportJudgment = judgment;
+    if (db) {
+      try {
+        const runId = workerPool.activeRunId || 'default-run';
+        const nowIso = new Date().toISOString();
+        db.raw.prepare(`
+          INSERT INTO host_decisions (
+            decision_id, run_id, turn_number, decision_type, rationale,
+            task_id, action_payload_json, inbox_event_ids_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          `dec-submit-${randomUUID().substring(0, 8)}`,
+          runId,
+          999,
+          'finalize',
+          judgment.overall_interpretation || 'Final report judgment',
+          'report',
+          JSON.stringify(judgment),
+          JSON.stringify([]),
+          nowIso
+        );
+      } catch (err) {
+        console.error('[submitJudgmentTool] Failed to record host_decision:', err);
+      }
+    }
     return { ok: true };
   });
 
@@ -180,6 +209,13 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
       budgetLedger,
       sseManager,
     });
+
+  // Startup recovery: scan interrupted attempts & unhandled outbox events
+  try {
+    coordinator.recoverOnStartup();
+  } catch (err) {
+    console.error('[RuntimeServer] Failed to recover on startup:', err);
+  }
 
   const recoveryMgr = new RecoveryManager(runRepo);
   const reviewMgr = new ReviewManager(runRepo, taskRepo, reviewRepo, submissionMgr);
@@ -320,6 +356,7 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
 
   return {
     server,
+    coordinator,
     listen: (customPort?: number) =>
       new Promise<void>((resolve) => {
         server.listen(customPort ?? port, () => resolve());

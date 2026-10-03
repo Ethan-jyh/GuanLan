@@ -19,7 +19,7 @@ import { EvidenceStore } from '../src/storage/evidence-store.js';
 import { EventStore } from '../src/storage/event-store.js';
 import { BudgetLedger } from '../src/storage/budget-ledger.js';
 import { ResearchWorkerPool } from '../src/orchestration/research-worker.js';
-import { HostInboxDispatcher, StageDecisionType } from '../src/orchestration/host-inbox.js';
+import { HostInboxDispatcher, StageDecisionType, formatHostPrompt } from '../src/orchestration/host-inbox.js';
 import { ReleaseGate } from '../src/orchestration/release-gate.js';
 import { createHostAgent } from '../src/agents/host.js';
 import { createReportAgent, createSubmitJudgmentTool } from '../src/agents/report.js';
@@ -29,6 +29,7 @@ import {
   createResearchFeedbackTool,
   createGetResearchResultTool,
   createCancelResearchTaskTool,
+  runExecutionContext,
 } from '../src/tools/research-tools.js';
 import { createDelegateResearchTool } from '../src/tools/delegate-research.js';
 import { createScriptedStreamFn } from '../src/runtime/pi-adapter.js';
@@ -538,6 +539,393 @@ describe('Task 7: E2E Subagent Tools, Host Inbox & Release Gate Assembly', () =>
       // Resume run
       const resumed = coordinator.resumeRun(runId);
       assert.equal(resumed.execution_version, 2);
+    });
+
+    it('should display topic, scope, and tool dispatch guidance in formatHostPrompt when no tasks exist', () => {
+      const runId = 'run-prompt-test';
+      const prompt = formatHostPrompt(
+        runId,
+        [
+          {
+            run_id: runId,
+            event_type: 'run_started',
+            payload: {
+              topic: '大模型生成内容知识产权归属争议',
+              scope: { jurisdiction: 'CN', year: 2026 },
+              prompt: '聚焦司法判例与行政监管定调',
+            },
+          },
+        ],
+        {
+          tasks: [],
+          budget: { global_remaining: 50, global_total: 50 },
+        }
+      );
+
+      assert.ok(prompt.includes('【研判主题与背景】'), 'Must contain topic section');
+      assert.ok(prompt.includes('大模型生成内容知识产权归属争议'), 'Must contain topic title');
+      assert.ok(prompt.includes('CN'), 'Must contain scope content');
+      assert.ok(prompt.includes('聚焦司法判例与行政监管定调'), 'Must contain guidance prompt');
+      assert.ok(prompt.includes('尚未创建任何研究任务'), 'Must indicate no tasks yet');
+      assert.ok(prompt.includes('research_authority'), 'Must instruct using research tools');
+      assert.ok(prompt.includes('【当前计划】\n（尚未创建任何研究任务'), 'Plan section must show empty guidance');
+      assert.ok(prompt.includes('派发研究任务') || prompt.includes('delegate_research'), 'Decision section must guide dispatching');
+    });
+
+    it('should pass snapshot claims, evidence, and findings to ReportAgent and persist ReportJudgment on release', async () => {
+      const db = createDatabase(':memory:');
+      const runRepo = new RunRepository(db);
+      const taskRepo = new TaskRepository(db);
+      const resultRepo = new TaskResultRepository(db);
+      const evidenceStore = new EvidenceStore(db);
+      const outboxRepo = new OutboxRepository(db);
+      const inboxRepo = new HostInboxRepository(db);
+      const snapshotRepo = new MaterialSnapshotRepository(db);
+      const decisionRepo = new HostDecisionRepository(db);
+
+      const runId = 'run-report-judgment-test';
+      const nowIso = new Date().toISOString();
+
+      runRepo.createRun({
+        run_id: runId,
+        topic: '新能源汽车固态电池量产突破研判',
+        scope: { region: 'CN' },
+        status: RunStatus.Researching,
+        current_round: 1,
+        max_rounds: 3,
+        budget_total: 50,
+        budget_used: 15,
+        execution_version: 1,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+
+      const taskId = 'task-auth-bat';
+      taskRepo.createTask({
+        task_id: taskId,
+        run_id: runId,
+        role: ResearchRole.Authority,
+        round: 1,
+        generation: 1,
+        question: '固态电池量产时间表与工信部公告核实',
+        scope: {},
+        completion_criteria: '查证官方公告',
+        required_for_report: true,
+        budget_allocated: 12,
+        status: TaskStatus.Succeeded,
+        created_at: nowIso,
+      });
+
+      evidenceStore.addEvidence({
+        evidence_id: 'E-BAT-01',
+        run_id: runId,
+        source_type: 'official_announcement',
+        source_ref: 'MIIT-2026-BAT',
+        title: '工信部固态电池规范',
+        excerpt: '第一批示范产线进入装车验证阶段',
+      });
+
+      const claim: Claim = {
+        claim_id: 'CLM-BAT-1',
+        statement: '首批装车验证产线已投产',
+        evidence_ids: ['E-BAT-01'],
+        limitations: [],
+      };
+
+      resultRepo.saveResult({
+        result_id: 'res-bat-1',
+        task_id: taskId,
+        attempt_id: 'attempt-bat-1',
+        run_id: runId,
+        version: 1,
+        role: 'authority',
+        status: 'succeeded',
+        summary: '官方通报显示装车验证启动',
+        findings: { summary: '官方通报显示装车验证启动', claims: [claim] },
+        created_at: nowIso,
+      });
+
+      const releaseGate = new ReleaseGate({
+        db,
+        taskRepo,
+        resultRepo,
+        evidenceStore,
+        runRepo,
+        outboxRepo,
+        inboxRepo,
+        snapshotRepo,
+        decisionRepo,
+      });
+
+      let receivedReportPrompt = '';
+      const mockJudgment: ReportJudgment = {
+        overall_interpretation: '固态电池商业化处于量产突破临界期，供应链格局将重构。',
+        risks: [{ risk: '低温充放电效率与良率控制' }],
+        recommendations: [{ action: '跟踪第二批工信部试点示范名单' }],
+        linked_claim_ids: ['CLM-BAT-1'],
+        linked_evidence_ids: ['E-BAT-01'],
+        applicability_conditions: ['乘用车示范产线'],
+        alternative_explanations: [],
+        uncertainties: ['上游关键前驱体产能瓶颈'],
+      };
+
+      const submitJudgmentTool = createSubmitJudgmentTool(async () => {
+        return { ok: true };
+      });
+
+      const reportAgent = createReportAgent({
+        submitJudgmentTool,
+        streamFn: createScriptedStreamFn([
+          {
+            toolCalls: [
+              {
+                name: 'submit_judgment',
+                arguments: { judgment: mockJudgment },
+              },
+            ],
+          },
+          { text: 'Final report submitted successfully' },
+        ]),
+      });
+
+      const coordinator = new ResearchCoordinator(
+        runRepo,
+        taskRepo,
+        undefined as any,
+        undefined,
+        {
+          db,
+          releaseGate,
+          reportAgent,
+        }
+      );
+
+      // Request release with allowed_gaps for uncalled roles
+      const releaseRes = await coordinator.requestRelease(runId, {
+        allowed_gaps: ['evolution: not_applicable', 'feedback: not_applicable'],
+        rationale: '专项技术合规先行发布，evolution and feedback are not applicable',
+        unresolved_issues: [],
+        restricted: true,
+        target_format: 'brief',
+      });
+
+      assert.equal(releaseRes.ok, true, 'Release should pass');
+      assert.ok(releaseRes.snapshot, 'Snapshot should be returned');
+      assert.ok(releaseRes.judgment, 'Judgment should be returned in release result');
+      assert.equal(releaseRes.judgment?.overall_interpretation, mockJudgment.overall_interpretation);
+
+      // Verify persisted in host_decisions
+      const decisions = decisionRepo.listDecisions(runId);
+      assert.ok(decisions.some((d) => d.decision_type === 'finalize' && d.task_id === 'report'));
+
+      // Verify run status transitioned to Completed
+      const completedRun = runRepo.getRun(runId);
+      assert.equal(completedRun?.status, RunStatus.Completed);
+    });
+
+    it('should execute startup recovery during createRuntimeServer', () => {
+      const db = createDatabase(':memory:');
+      const runRepo = new RunRepository(db);
+      const taskRepo = new TaskRepository(db);
+      const attemptRepo = new TaskAttemptRepository(db);
+
+      const runId = 'run-cold-boot';
+      runRepo.createRun({
+        run_id: runId,
+        topic: '冷启动测试',
+        scope: {},
+        status: RunStatus.Researching,
+        current_round: 1,
+        max_rounds: 3,
+        budget_total: 50,
+        budget_used: 0,
+        execution_version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      taskRepo.createTask({
+        task_id: 'task-active-1',
+        run_id: runId,
+        role: ResearchRole.Authority,
+        round: 1,
+        generation: 1,
+        question: '活跃任务',
+        scope: {},
+        completion_criteria: '完成',
+        required_for_report: true,
+        budget_allocated: 10,
+        status: TaskStatus.Running,
+        created_at: new Date().toISOString(),
+      });
+
+      attemptRepo.createAttempt({
+        attempt_id: 'attempt-dangling-1',
+        task_id: 'task-active-1',
+        run_id: runId,
+        execution_version: 1,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      });
+
+      // createRuntimeServer with custom db
+      const srv = createRuntimeServer({ db, port: 0 });
+      assert.ok(srv.coordinator, 'Server should expose coordinator');
+
+      // The attempt should have been failed by recoverOnStartup() on boot
+      const attempt = attemptRepo.getAttempt('attempt-dangling-1');
+      assert.equal(attempt?.status, 'failed');
+    });
+
+    it('should filter outbox events by after_seq via GET /api/research/runs/:id/outbox?after_seq=N', async () => {
+      // Create run
+      const createRes = await fetch(`${baseUrl}/api/research/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: 'Outbox seq filter test', mode: 'async' }),
+      });
+      const createData = (await createRes.json()) as any;
+      const runId = createData.run_id;
+
+      // Query outbox
+      const outboxRes = await fetch(`${baseUrl}/api/research/runs/${runId}/outbox?after_seq=9999`);
+      assert.equal(outboxRes.status, 200);
+      const outboxData = (await outboxRes.json()) as any;
+      assert.equal(outboxData.ok, true);
+      assert.deepEqual(outboxData.events, []);
+    });
+
+    it('should guard recoverOnStartup from overwriting Succeeded and Partial tasks', () => {
+      const db = createDatabase(':memory:');
+      const runRepo = new RunRepository(db);
+      const taskRepo = new TaskRepository(db);
+      const attemptRepo = new TaskAttemptRepository(db);
+
+      const runId = 'run-guard-test';
+      runRepo.createRun({
+        run_id: runId,
+        topic: '防护状态测试',
+        scope: {},
+        status: RunStatus.Researching,
+        current_round: 1,
+        max_rounds: 3,
+        budget_total: 50,
+        budget_used: 0,
+        execution_version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      // Succeeded task
+      taskRepo.createTask({
+        task_id: 'task-succ',
+        run_id: runId,
+        role: ResearchRole.Authority,
+        round: 1,
+        generation: 1,
+        question: '已成功任务',
+        scope: {},
+        completion_criteria: '完成',
+        required_for_report: true,
+        budget_allocated: 10,
+        status: TaskStatus.Succeeded,
+        created_at: new Date().toISOString(),
+      });
+      attemptRepo.createAttempt({
+        attempt_id: 'attempt-succ-dangling',
+        task_id: 'task-succ',
+        run_id: runId,
+        execution_version: 1,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      });
+
+      // Partial task
+      taskRepo.createTask({
+        task_id: 'task-part',
+        run_id: runId,
+        role: ResearchRole.Evolution,
+        round: 1,
+        generation: 1,
+        question: '部分完成任务',
+        scope: {},
+        completion_criteria: '完成',
+        required_for_report: true,
+        budget_allocated: 10,
+        status: TaskStatus.Partial,
+        created_at: new Date().toISOString(),
+      });
+      attemptRepo.createAttempt({
+        attempt_id: 'attempt-part-dangling',
+        task_id: 'task-part',
+        run_id: runId,
+        execution_version: 1,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      });
+
+      // Running task
+      taskRepo.createTask({
+        task_id: 'task-run',
+        run_id: runId,
+        role: ResearchRole.Feedback,
+        round: 1,
+        generation: 1,
+        question: '执行中任务',
+        scope: {},
+        completion_criteria: '完成',
+        required_for_report: true,
+        budget_allocated: 10,
+        status: TaskStatus.Running,
+        created_at: new Date().toISOString(),
+      });
+      attemptRepo.createAttempt({
+        attempt_id: 'attempt-run-dangling',
+        task_id: 'task-run',
+        run_id: runId,
+        execution_version: 1,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      });
+
+      const coordinator = new ResearchCoordinator(
+        runRepo,
+        taskRepo,
+        undefined as any,
+        undefined,
+        { db, attemptRepo }
+      );
+
+      coordinator.recoverOnStartup();
+
+      // Verify task statuses
+      const succTask = taskRepo.getTask('task-succ');
+      assert.equal(succTask?.status, TaskStatus.Succeeded, 'Succeeded task status must be preserved');
+
+      const partTask = taskRepo.getTask('task-part');
+      assert.equal(partTask?.status, TaskStatus.Partial, 'Partial task status must be preserved');
+
+      const runTask = taskRepo.getTask('task-run');
+      assert.equal(runTask?.status, TaskStatus.Failed, 'Running task should be marked Failed');
+    });
+
+    it('should provide run_id via runExecutionContext to research tools during host turns', async () => {
+      const db = createDatabase(':memory:');
+      const tool = createResearchAuthorityTool({ db });
+
+      let capturedRunId: string | undefined;
+      await runExecutionContext.run({ run_id: 'context-isolated-run-888' }, async () => {
+        const receipt = (await tool.execute({
+          question: 'Context isolation test',
+          completion_criteria: 'Validate context run_id',
+        })) as any;
+
+        const taskRepo = new TaskRepository(db);
+        const task = taskRepo.getTask(receipt.task_id);
+        capturedRunId = task?.run_id;
+      });
+
+      assert.equal(capturedRunId, 'context-isolated-run-888', 'Tool should inherit run_id from runExecutionContext');
     });
   });
 });

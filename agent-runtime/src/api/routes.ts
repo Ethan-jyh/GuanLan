@@ -185,7 +185,9 @@ export class ResearchApiRouter {
 
       // GET /api/research/runs/:id/outbox
       if (method === 'GET' && action === 'outbox') {
-        const events = this.deps.outboxRepo?.getEventsAfter(0, runId) || [];
+        const afterSeq = parseInt(parsedUrl.searchParams.get('after_seq') || '0', 10);
+        const events =
+          this.deps.outboxRepo?.getEventsAfter(isNaN(afterSeq) ? 0 : afterSeq, runId) || [];
         this.sendJson(res, 200, { ok: true, events });
         return true;
       }
