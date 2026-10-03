@@ -53,10 +53,39 @@ export class SseManager {
     }
   }
 
+  public broadcastTaskTransition(
+    run_id: string,
+    transition: {
+      task_id: string;
+      role?: string;
+      from?: string;
+      to: string;
+      attempt_id?: string;
+      payload?: any;
+    }
+  ): number {
+    let seq = 0;
+    if (this.eventStore) {
+      seq = this.eventStore.publishEvent(run_id, 'task_transition', transition);
+    }
+    this.broadcast(run_id, seq, 'task_transition', transition);
+    return seq;
+  }
+
+  public broadcastHostDecision(
+    run_id: string,
+    decision: any
+  ): number {
+    let seq = 0;
+    if (this.eventStore) {
+      seq = this.eventStore.publishEvent(run_id, 'host_decision', decision);
+    }
+    this.broadcast(run_id, seq, 'host_decision', decision);
+    return seq;
+  }
+
   private writeSseEvent(res: ServerResponse, id: number, event: string, data: any): void {
-    res.write(`id: ${id}\n`);
-    res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    res.write(`id: ${id}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 
   private startHeartbeat(): void {

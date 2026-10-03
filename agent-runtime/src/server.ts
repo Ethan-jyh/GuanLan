@@ -7,6 +7,12 @@ import {
   TaskRepository,
   SubmissionRepository,
   ReviewRepository,
+  TaskAttemptRepository,
+  TaskResultRepository,
+  OutboxRepository,
+  HostInboxRepository,
+  HostDecisionRepository,
+  MaterialSnapshotRepository,
 } from './storage/repositories.js';
 import { EvidenceStore } from './storage/evidence-store.js';
 import { EventStore } from './storage/event-store.js';
@@ -15,6 +21,19 @@ import { SubmissionManager } from './orchestration/submissions.js';
 import { ResearchCoordinator } from './orchestration/coordinator.js';
 import { RecoveryManager } from './orchestration/recovery.js';
 import { ReviewManager } from './orchestration/review.js';
+import { ResearchWorkerPool } from './orchestration/research-worker.js';
+import { HostInboxDispatcher } from './orchestration/host-inbox.js';
+import { ReleaseGate } from './orchestration/release-gate.js';
+import { createHostAgent, HostAgent } from './agents/host.js';
+import { createReportAgent, ReportAgent, createSubmitJudgmentTool } from './agents/report.js';
+import {
+  createResearchAuthorityTool,
+  createResearchEvolutionTool,
+  createResearchFeedbackTool,
+  createGetResearchResultTool,
+  createCancelResearchTaskTool,
+} from './tools/research-tools.js';
+import { createDelegateResearchTool } from './tools/delegate-research.js';
 import { SseManager } from './api/sse.js';
 import { ResearchApiRouter } from './api/routes.js';
 
@@ -24,12 +43,22 @@ import { AUTHORITY_SYSTEM_PROMPT } from './prompts/authority.js';
 import { createSubmitFindingsTool } from './tools/submit-findings.js';
 import { PythonToolClient } from './tools/python-client.js';
 import { createScriptedStreamFn } from './runtime/pi-adapter.js';
+import type { StreamFn } from '@earendil-works/pi-agent-core';
 
 export interface RuntimeServerOptions {
   port?: number;
   dbPath?: string;
   pythonBaseUrl?: string;
   internalToken?: string;
+  workerPool?: ResearchWorkerPool;
+  hostAgent?: HostAgent;
+  hostInboxDispatcher?: HostInboxDispatcher;
+  releaseGate?: ReleaseGate;
+  reportAgent?: ReportAgent;
+  coordinator?: ResearchCoordinator;
+  hostStreamFn?: StreamFn;
+  workerStreamFn?: StreamFn;
+  reportStreamFn?: StreamFn;
 }
 
 export function createRuntimeServer(options: RuntimeServerOptions = {}) {
@@ -44,15 +73,116 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
   const taskRepo = new TaskRepository(db);
   const subRepo = new SubmissionRepository(db);
   const reviewRepo = new ReviewRepository(db);
+  const attemptRepo = new TaskAttemptRepository(db);
+  const resultRepo = new TaskResultRepository(db);
+  const outboxRepo = new OutboxRepository(db);
+  const inboxRepo = new HostInboxRepository(db);
+  const decisionRepo = new HostDecisionRepository(db);
+  const snapshotRepo = new MaterialSnapshotRepository(db);
   const evidenceStore = new EvidenceStore(db);
   const eventStore = new EventStore(db);
-  const budgetLedger = new BudgetLedger(db);
+  const budgetLedger = new BudgetLedger(db, { totalToolLimit: 60, reservedForWriting: 10 });
+  const sseManager = new SseManager(eventStore);
+
+  // Initialize Worker Pool
+  const workerPool =
+    options.workerPool ||
+    new ResearchWorkerPool({
+      db,
+      streamFn: options.workerStreamFn || createScriptedStreamFn([{ text: 'Worker ready' }]),
+      evidenceStore,
+    });
+
+  // Wire worker pool transitions
+  workerPool.onTaskTransition = (transition) => {
+    sseManager.broadcastTaskTransition(transition.run_id, transition);
+  };
+
+  // Tools for HostAgent
+  const authorityTool = createResearchAuthorityTool({ workerPool, db });
+  const evolutionTool = createResearchEvolutionTool({ workerPool, db });
+  const feedbackTool = createResearchFeedbackTool({ workerPool, db });
+  const getResultTool = createGetResearchResultTool(db);
+  const cancelTool = createCancelResearchTaskTool(workerPool);
+  const delegateTool = createDelegateResearchTool({ workerPool, db });
+
+  // Host Agent
+  const hostAgent =
+    options.hostAgent ||
+    createHostAgent({
+      streamFn: options.hostStreamFn || createScriptedStreamFn([{ text: 'Host ready' }]),
+      delegateTool,
+      additionalTools: [authorityTool, evolutionTool, feedbackTool, getResultTool, cancelTool],
+    });
+
+  // Host Inbox Dispatcher
+  const hostInboxDispatcher =
+    options.hostInboxDispatcher ||
+    new HostInboxDispatcher({
+      db,
+      hostAgent,
+      budgetLedger,
+      debounceMs: 100,
+      onHostDecision: (runId, decision) => {
+        sseManager.broadcastHostDecision(runId, decision);
+      },
+    });
+
+  // Connect worker pool outcome -> notify host inbox
+  workerPool.onOutcome = (outcome) => {
+    hostInboxDispatcher.notifyOutbox(outcome.run_id);
+  };
+
+  // Release Gate
+  const releaseGate =
+    options.releaseGate ||
+    new ReleaseGate({
+      db,
+      taskRepo,
+      resultRepo,
+      evidenceStore,
+      runRepo,
+      outboxRepo,
+      inboxRepo,
+      snapshotRepo,
+      decisionRepo,
+    });
+
+  // Report Agent
+  const submitJudgmentTool = createSubmitJudgmentTool(async (_judgment) => {
+    return { ok: true };
+  });
+
+  const reportAgent =
+    options.reportAgent ||
+    createReportAgent({
+      streamFn: options.reportStreamFn || createScriptedStreamFn([{ text: 'Report ready' }]),
+      submitJudgmentTool,
+    });
 
   const submissionMgr = new SubmissionManager(subRepo, taskRepo, evidenceStore);
-  const coordinator = new ResearchCoordinator(runRepo, taskRepo, submissionMgr, eventStore);
+  const coordinator =
+    options.coordinator ||
+    new ResearchCoordinator(runRepo, taskRepo, submissionMgr, eventStore, {
+      workerPool,
+      hostInboxDispatcher,
+      releaseGate,
+      hostAgent,
+      reportAgent,
+      db,
+      attemptRepo,
+      outboxRepo,
+      inboxRepo,
+      resultRepo,
+      snapshotRepo,
+      decisionRepo,
+      evidenceStore,
+      budgetLedger,
+      sseManager,
+    });
+
   const recoveryMgr = new RecoveryManager(runRepo);
   const reviewMgr = new ReviewManager(runRepo, taskRepo, reviewRepo, submissionMgr);
-  const sseManager = new SseManager(eventStore);
 
   const apiRouter = new ResearchApiRouter({
     coordinator,
@@ -61,6 +191,13 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
     budgetLedger,
     eventStore,
     sseManager,
+    workerPool,
+    hostInboxDispatcher,
+    releaseGate,
+    outboxRepo,
+    inboxRepo,
+    taskRepo,
+    resultRepo,
   });
 
   const server = http.createServer(async (req, res) => {
@@ -189,6 +326,7 @@ export function createRuntimeServer(options: RuntimeServerOptions = {}) {
       }),
     close: () =>
       new Promise<void>((resolve, reject) => {
+        hostInboxDispatcher.destroy();
         sseManager.close();
         server.close((err) => (err ? reject(err) : resolve()));
       }),

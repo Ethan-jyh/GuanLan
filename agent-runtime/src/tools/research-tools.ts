@@ -141,14 +141,16 @@ export function createResearchRoleTool(
         return await fn(roleStr, jobParams);
       }
 
+      const effectiveRunId = jobParams.run_id || opts.run_id || opts.workerPool?.activeRunId;
+
       if (opts.workerPool) {
         return await opts.workerPool.enqueueTask(roleStr, jobParams, {
-          run_id: opts.run_id,
+          run_id: effectiveRunId,
         });
       }
 
       if (opts.db) {
-        const runId = opts.run_id || 'default-run';
+        const runId = effectiveRunId || 'default-run';
         const taskId = `task-${roleStr}-${randomUUID().slice(0, 8)}`;
         const attemptId = `attempt-${randomUUID().slice(0, 8)}`;
         const nowIso = new Date().toISOString();

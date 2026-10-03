@@ -328,6 +328,10 @@ export class HostInboxDispatcher {
       });
     }, this.debounceMs);
 
+    if (timer.unref) {
+      timer.unref();
+    }
+
     this.debounceTimers.set(runId, timer);
   }
 

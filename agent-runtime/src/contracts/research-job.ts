@@ -16,6 +16,7 @@ export type ResearchSubagentRole = z.infer<typeof ResearchSubagentRoleSchema>;
  * HOST 派发独立研究作业的参数契约
  */
 export const ResearchJobParamsSchema = z.object({
+  run_id: z.string().optional(),
   question: z.string().min(1, 'question is required'),
   scope: z.record(z.string(), z.unknown()).default({}),
   completion_criteria: z.string().min(1, 'completion_criteria is required'),

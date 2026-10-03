@@ -3,6 +3,7 @@ import { ResearchDatabase } from './database.js';
 import { Evidence } from '../contracts/evidence.js';
 
 export interface AddEvidenceParams {
+  evidence_id?: string;
   run_id: string;
   source_type: string;
   source_ref: string;
@@ -50,12 +51,12 @@ export class EvidenceStore {
       };
     }
 
-    // 2. Generate new sequential evidence_id for this run: E-001, E-002, etc.
+    // 2. Generate new sequential evidence_id for this run: E-001, E-002, etc. (or use provided)
     const countRow = this.db.raw
       .prepare('SELECT COUNT(*) AS cnt FROM evidence WHERE run_id = ?')
       .get(params.run_id) as any;
     const nextNum = (countRow?.cnt || 0) + 1;
-    const evidenceId = `E-${String(nextNum).padStart(3, '0')}`;
+    const evidenceId = params.evidence_id || `E-${String(nextNum).padStart(3, '0')}`;
     const scopeJson = params.coverage_scope ? JSON.stringify(params.coverage_scope) : null;
 
     this.db.raw

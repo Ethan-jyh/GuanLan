@@ -96,23 +96,62 @@ export function renderDashboardHtml(): string {
     button:hover { background: var(--primary-light); }
     .status-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
-    .role-card {
+    .task-card {
       background: #edf2f7;
       border-radius: 6px;
       padding: 1rem;
-      text-align: center;
       border-top: 4px solid var(--primary-light);
+      position: relative;
     }
-    .role-card h3 { font-size: 0.95rem; margin-bottom: 0.4rem; }
-    .role-status {
+    .task-card h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .task-role {
       font-size: 0.8rem;
-      font-weight: 600;
       color: var(--text-muted);
+      margin-bottom: 0.5rem;
     }
+    .task-question {
+      font-size: 0.8rem;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .task-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px dashed var(--border);
+      padding-top: 0.4rem;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.queued { background: #e2e8f0; color: #4a5568; }
+    .status-badge.running { background: #feebc8; color: #c05621; }
+    .status-badge.succeeded { background: #c6f6d5; color: #22543d; }
+    .status-badge.failed { background: #fed7d7; color: #9b2c2c; }
+    .status-badge.partial { background: #e9d8fd; color: #553c9a; }
+    .status-badge.cancelled { background: #edf2f7; color: #718096; }
+    .status-badge.timed_out { background: #fed7d7; color: #9b2c2c; }
     .event-feed {
       height: 320px;
       overflow-y: auto;
@@ -143,7 +182,7 @@ export function renderDashboardHtml(): string {
 <body>
   <header>
     <h1>🌊 观澜 · GuanLan 全媒体多智能体态势研判工作台</h1>
-    <span class="badge">TypeScript Orchestration Runtime</span>
+    <span class="badge">Subagent Tools & Serialized Dispatch</span>
   </header>
 
   <main>
@@ -155,6 +194,13 @@ export function renderDashboardHtml(): string {
           <input type="text" id="topicInput" placeholder="输入研判事件核心主题..." value="暴雨应急处置与网络舆情演化">
         </div>
         <div class="form-group">
+          <label>运行模式</label>
+          <select id="modeInput">
+            <option value="async" selected>异步智能体按需派发 (Subagents as Tools)</option>
+            <option value="legacy">经典三角色并行同步 (Legacy Fixed)</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>地理或主体范围 (JSON)</label>
           <textarea id="scopeInput" rows="2">{"region": "涉事区域", "time_window": "48h"}</textarea>
         </div>
@@ -162,7 +208,7 @@ export function renderDashboardHtml(): string {
           <label>工具总预算配额</label>
           <input type="number" id="budgetInput" value="50" min="20" max="100">
         </div>
-        <button id="createRunBtn" onclick="createRun()">发起三方协同研判</button>
+        <button id="createRunBtn" onclick="createRun()">发起态势研判</button>
       </div>
 
       <div class="card">
@@ -179,19 +225,10 @@ export function renderDashboardHtml(): string {
 
     <div class="content-area">
       <div class="card">
-        <h2>三方智能体协同进展 (<span id="runIdLabel">等待发起...</span>)</h2>
-        <div class="status-grid">
-          <div class="role-card" id="cardAuthority">
-            <h3>权威核查 (Authority)</h3>
-            <div class="role-status" id="statusAuthority">待分配</div>
-          </div>
-          <div class="role-card" id="cardEvolution">
-            <h3>演化脉络 (Evolution)</h3>
-            <div class="role-status" id="statusEvolution">待分配</div>
-          </div>
-          <div class="role-card" id="cardFeedback">
-            <h3>公众反馈 (Feedback)</h3>
-            <div class="role-status" id="statusFeedback">待分配</div>
+        <h2>独立子任务进展 (<span id="runIdLabel">等待发起...</span>)</h2>
+        <div class="status-grid" id="tasksContainer">
+          <div class="task-card" style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">
+            暂无已派发的研究任务。发起研判后 HOST 将根据需要规划并派发任务。
           </div>
         </div>
 
@@ -216,6 +253,7 @@ export function renderDashboardHtml(): string {
 
     async function createRun() {
       const topic = document.getElementById('topicInput').value.trim();
+      const mode = document.getElementById('modeInput').value;
       let scope = {};
       try {
         scope = JSON.parse(document.getElementById('scopeInput').value || '{}');
@@ -228,7 +266,7 @@ export function renderDashboardHtml(): string {
       const resp = await fetch('/api/research/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, scope, budget_total })
+        body: JSON.stringify({ topic, scope, budget_total, mode })
       });
 
       if (!resp.ok) {
@@ -243,7 +281,47 @@ export function renderDashboardHtml(): string {
       document.getElementById('statusLabel').innerText = data.run.status;
       document.getElementById('roundLabel').innerText = data.run.current_round;
 
+      renderTasks(data.tasks || []);
       startEventStream(activeRunId);
+      pollTasks(activeRunId);
+    }
+
+    async function pollTasks(runId) {
+      if (!runId || runId !== activeRunId) return;
+      try {
+        const resp = await fetch('/api/research/runs/' + runId + '/tasks');
+        if (resp.ok) {
+          const data = await resp.json();
+          renderTasks(data.tasks || []);
+        }
+      } catch {}
+    }
+
+    function renderTasks(tasks) {
+      const container = document.getElementById('tasksContainer');
+      if (!tasks || tasks.length === 0) {
+        container.innerHTML = '<div class="task-card" style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">暂无已派发的研究任务。</div>';
+        return;
+      }
+
+      container.innerHTML = tasks.map(t => {
+        const statusClass = (t.status || 'pending').toLowerCase();
+        const roleName = t.role === 'authority' ? '权威核查' : (t.role === 'evolution' ? '演化脉络' : (t.role === 'feedback' ? '公众反馈' : t.role));
+        return \`
+          <div class="task-card" id="card-\${t.task_id}">
+            <h3>
+              <span>\${roleName}</span>
+              <span class="status-badge \${statusClass}">\${t.status}</span>
+            </h3>
+            <div class="task-role">ID: \${t.task_id}</div>
+            <div class="task-question">\${t.question || '-'}</div>
+            <div class="task-meta">
+              <span>轮次: \${t.round || 1} (代: \${t.generation || 1})</span>
+              <span>预算: \${t.budget_allocated || 0}</span>
+            </div>
+          </div>
+        \`;
+      }).join('');
     }
 
     function startEventStream(runId) {
@@ -252,13 +330,30 @@ export function renderDashboardHtml(): string {
       feed.innerHTML = '';
 
       sseSource = new EventSource('/api/research/runs/' + runId + '/events');
+      
+      sseSource.addEventListener('task_transition', function(e) {
+        const data = JSON.parse(e.data || '{}');
+        appendFeedItem(e.lastEventId, 'TASK [' + (data.task_id || '') + ']: ' + (data.from || '') + ' -> ' + data.to);
+        pollTasks(runId);
+      });
+
+      sseSource.addEventListener('host_decision', function(e) {
+        const data = JSON.parse(e.data || '{}');
+        appendFeedItem(e.lastEventId, 'HOST DECISION: ' + data.decision_type + ' - ' + (data.rationale || ''));
+      });
+
       sseSource.onmessage = function(e) {
-        const div = document.createElement('div');
-        div.className = 'event-item';
-        div.innerHTML = '<span class="event-seq">#' + (e.lastEventId || '*') + '</span> ' + e.data;
-        feed.appendChild(div);
-        feed.scrollTop = feed.scrollHeight;
+        appendFeedItem(e.lastEventId, e.data);
       };
+    }
+
+    function appendFeedItem(seq, text) {
+      const feed = document.getElementById('eventFeed');
+      const div = document.createElement('div');
+      div.className = 'event-item';
+      div.innerHTML = '<span class="event-seq">#' + (seq || '*') + '</span> ' + text;
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
     }
   </script>
 </body>

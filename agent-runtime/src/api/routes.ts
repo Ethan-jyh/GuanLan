@@ -6,6 +6,15 @@ import { RecoveryManager } from '../orchestration/recovery.js';
 import { ReviewManager } from '../orchestration/review.js';
 import { BudgetLedger } from '../storage/budget-ledger.js';
 import { EventStore } from '../storage/event-store.js';
+import {
+  TaskRepository,
+  TaskResultRepository,
+  OutboxRepository,
+  HostInboxRepository,
+} from '../storage/repositories.js';
+import { ResearchWorkerPool } from '../orchestration/research-worker.js';
+import { HostInboxDispatcher } from '../orchestration/host-inbox.js';
+import { ReleaseGate } from '../orchestration/release-gate.js';
 import { SseManager } from './sse.js';
 import { renderDashboardHtml } from './dashboard.js';
 import { HostReviewDecision } from '../contracts/review.js';
@@ -17,6 +26,13 @@ export interface ApiHandlerDependencies {
   budgetLedger: BudgetLedger;
   eventStore: EventStore;
   sseManager: SseManager;
+  workerPool?: ResearchWorkerPool;
+  hostInboxDispatcher?: HostInboxDispatcher;
+  releaseGate?: ReleaseGate;
+  outboxRepo?: OutboxRepository;
+  inboxRepo?: HostInboxRepository;
+  taskRepo?: TaskRepository;
+  resultRepo?: TaskResultRepository;
 }
 
 export class ResearchApiRouter {
@@ -59,9 +75,55 @@ export class ResearchApiRouter {
       }
 
       const budgetTotal = typeof body.budget_total === 'number' ? body.budget_total : 50;
-      const run = this.deps.coordinator.createRun(topic, body.scope || {}, body.roles, budgetTotal);
+      const isAsync =
+        body.mode === 'async' ||
+        body.auto_create_tasks === false ||
+        parsedUrl.searchParams.get('mode') === 'async';
+
+      const autoCreateTasks =
+        body.auto_create_tasks !== undefined ? Boolean(body.auto_create_tasks) : !isAsync;
+
+      const run = this.deps.coordinator.createRun(
+        topic,
+        body.scope || {},
+        body.roles,
+        budgetTotal,
+        { autoCreateTasks, mode: isAsync ? 'async' : 'sync' }
+      );
+
+      if (isAsync) {
+        this.deps.coordinator.startRun(run.run_id).catch((err) => {
+          console.error(`[ApiRouter] Error starting run ${run.run_id}:`, err);
+        });
+      }
+
       this.sendJson(res, 201, { ok: true, run });
       return true;
+    }
+
+    // Direct task routes: /api/research/tasks/:taskId(/cancel)?
+    const taskDirectMatch = subPath.match(/^tasks\/([^/]+)(\/(.*))?$/);
+    if (taskDirectMatch) {
+      const taskId = taskDirectMatch[1];
+      const action = taskDirectMatch[3] || '';
+
+      if (method === 'GET' && !action) {
+        const task = this.deps.taskRepo?.getTask(taskId);
+        if (!task) {
+          this.sendJson(res, 404, { ok: false, error: `Task '${taskId}' not found` });
+          return true;
+        }
+        const result = this.deps.resultRepo?.getLatestResult(task.run_id, taskId);
+        this.sendJson(res, 200, { ok: true, task, result });
+        return true;
+      }
+
+      if (method === 'POST' && action === 'cancel') {
+        const body = await this.readJsonBody(req);
+        const cancelled = await this.deps.coordinator.cancelTask(taskId, body.reason);
+        this.sendJson(res, 200, { ok: true, cancelled, task_id: taskId });
+        return true;
+      }
     }
 
     // Match /api/research/runs/:id/...
@@ -78,10 +140,86 @@ export class ResearchApiRouter {
           return true;
         }
 
-        const tasks = this.deps.coordinator.getTasksForRound(runId, run.current_round);
+        const tasks =
+          this.deps.taskRepo?.listTasks(runId) ??
+          this.deps.coordinator.getTasksForRound(runId, run.current_round);
         const budget = this.deps.budgetLedger.getUsage(runId);
 
         this.sendJson(res, 200, { ok: true, run, tasks, budget });
+        return true;
+      }
+
+      // GET /api/research/runs/:id/tasks
+      if (method === 'GET' && action === 'tasks') {
+        const tasks =
+          this.deps.taskRepo?.listTasks(runId) ??
+          this.deps.coordinator.getTasksForRound(runId, 1);
+        this.sendJson(res, 200, { ok: true, tasks });
+        return true;
+      }
+
+      // Tasks item routes: /api/research/runs/:id/tasks/:taskId(/cancel)?
+      const runTaskMatch = action.match(/^tasks\/([^/]+)(\/(.*))?$/);
+      if (runTaskMatch) {
+        const taskId = runTaskMatch[1];
+        const taskAction = runTaskMatch[3] || '';
+
+        if (method === 'GET' && !taskAction) {
+          const task = this.deps.taskRepo?.getTask(taskId);
+          if (!task) {
+            this.sendJson(res, 404, { ok: false, error: `Task '${taskId}' not found` });
+            return true;
+          }
+          const result = this.deps.resultRepo?.getLatestResult(runId, taskId);
+          this.sendJson(res, 200, { ok: true, task, result });
+          return true;
+        }
+
+        if (method === 'POST' && taskAction === 'cancel') {
+          const body = await this.readJsonBody(req);
+          const cancelled = await this.deps.coordinator.cancelTask(taskId, body.reason);
+          this.sendJson(res, 200, { ok: true, cancelled, task_id: taskId });
+          return true;
+        }
+      }
+
+      // GET /api/research/runs/:id/outbox
+      if (method === 'GET' && action === 'outbox') {
+        const events = this.deps.outboxRepo?.getEventsAfter(0, runId) || [];
+        this.sendJson(res, 200, { ok: true, events });
+        return true;
+      }
+
+      // GET /api/research/runs/:id/inbox
+      if (method === 'GET' && action === 'inbox') {
+        const records = this.deps.inboxRepo?.listByRun(runId) || [];
+        this.sendJson(res, 200, { ok: true, records });
+        return true;
+      }
+
+      // POST /api/research/runs/:id/release
+      if (method === 'POST' && action === 'release') {
+        try {
+          const body = await this.readJsonBody(req);
+          const result = await this.deps.coordinator.requestRelease(runId, body);
+          const statusCode = result.ok ? 200 : 400;
+          this.sendJson(res, statusCode, { ...result, ok: result.ok });
+        } catch (err: any) {
+          this.sendJson(res, 400, { ok: false, error: err.message });
+        }
+        return true;
+      }
+
+      // POST /api/research/runs/:id/start
+      if (method === 'POST' && action === 'start') {
+        try {
+          const body = await this.readJsonBody(req);
+          await this.deps.coordinator.startRun(runId, body.prompt);
+          const run = this.deps.coordinator.getRun(runId);
+          this.sendJson(res, 200, { ok: true, run });
+        } catch (err: any) {
+          this.sendJson(res, 400, { ok: false, error: err.message });
+        }
         return true;
       }
 
@@ -101,7 +239,9 @@ export class ResearchApiRouter {
       // POST /api/research/runs/:id/resume
       if (method === 'POST' && action === 'resume') {
         try {
-          const run = this.deps.recoveryMgr.resumeRun(runId);
+          const run = this.deps.coordinator.resumeRun
+            ? this.deps.coordinator.resumeRun(runId)
+            : this.deps.recoveryMgr.resumeRun(runId);
           this.sendJson(res, 200, { ok: true, run });
         } catch (err: any) {
           this.sendJson(res, 400, { ok: false, error: err.message });

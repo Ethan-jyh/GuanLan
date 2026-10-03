@@ -70,6 +70,20 @@ export interface WorkerAgentLike {
   state?: any;
 }
 
+import type { EvidenceStore } from '../storage/evidence-store.js';
+
+export type TaskTransitionHandler = (transition: {
+  run_id: string;
+  task_id: string;
+  attempt_id?: string;
+  role?: string;
+  from?: string;
+  to: string;
+  payload?: any;
+}) => Promise<void> | void;
+
+export type OutcomeHandler = (outcome: ResearchOutcome) => Promise<void> | void;
+
 export interface ResearchWorkerPoolOptions {
   db: ResearchDatabase;
   maxConcurrency?: number;
@@ -77,6 +91,9 @@ export interface ResearchWorkerPoolOptions {
   streamFn?: StreamFn;
   tools?: ResearchToolDefinition[] | ((role: ResearchSubagentRole) => ResearchToolDefinition[]);
   agentFactory?: (context: WorkerTaskContext) => Promise<WorkerAgentLike> | WorkerAgentLike;
+  evidenceStore?: EvidenceStore;
+  onOutcome?: OutcomeHandler;
+  onTaskTransition?: TaskTransitionHandler;
 }
 
 interface ActiveExecution {
@@ -96,6 +113,9 @@ export class ResearchWorkerPool {
   private attemptRepo: TaskAttemptRepository;
   private resultRepo: TaskResultRepository;
   private outboxRepo: OutboxRepository;
+  public onOutcome?: OutcomeHandler;
+  public onTaskTransition?: TaskTransitionHandler;
+  public activeRunId?: string;
 
   constructor(private options: ResearchWorkerPoolOptions) {
     this.maxConcurrency = options.maxConcurrency ?? 3;
@@ -104,6 +124,8 @@ export class ResearchWorkerPool {
     this.attemptRepo = new TaskAttemptRepository(options.db);
     this.resultRepo = new TaskResultRepository(options.db);
     this.outboxRepo = new OutboxRepository(options.db);
+    this.onOutcome = options.onOutcome;
+    this.onTaskTransition = options.onTaskTransition;
   }
 
   public get db(): ResearchDatabase {
@@ -132,7 +154,7 @@ export class ResearchWorkerPool {
     const subagentRole = roleValidation.data;
     const validated = parseResearchJobParams(params);
 
-    const runId = meta?.run_id || 'default-run';
+    const runId = meta?.run_id || validated.run_id || this.activeRunId || 'default-run';
     const taskId = meta?.task_id || `task-${subagentRole}-${randomUUID().slice(0, 8)}`;
     const attemptId = meta?.attempt_id || `attempt-${randomUUID().slice(0, 8)}`;
     const executionVersion = meta?.execution_version || 1;
@@ -185,6 +207,14 @@ export class ResearchWorkerPool {
     };
 
     this.queue.push(item);
+    this.onTaskTransition?.({
+      run_id: runId,
+      task_id: taskId,
+      attempt_id: attemptId,
+      role: subagentRole,
+      from: 'pending',
+      to: 'queued',
+    });
     // Non-blocking trigger of queue processing
     queueMicrotask(() => this.processQueue());
 
@@ -338,6 +368,14 @@ export class ResearchWorkerPool {
       try {
         this.attemptRepo.updateStatus(item.attempt_id, 'running');
         this.taskRepo.updateTaskStatus(item.task_id, TaskStatus.Running);
+        this.onTaskTransition?.({
+          run_id: item.run_id,
+          task_id: item.task_id,
+          attempt_id: item.attempt_id,
+          role: item.role,
+          from: 'queued',
+          to: 'running',
+        });
       } catch {
         // Ignore if update fails
       }
@@ -360,6 +398,22 @@ export class ResearchWorkerPool {
           findings.status === 'partial' ? 'partial' : 'succeeded';
         const taskStatus =
           status === 'partial' ? TaskStatus.Partial : TaskStatus.Succeeded;
+
+        // Auto-save evidence to evidence store if provided
+        if (this.options.evidenceStore && Array.isArray(findings.evidence_pool)) {
+          for (const ev of findings.evidence_pool) {
+            try {
+              this.options.evidenceStore.addEvidence({
+                evidence_id: ev.evidence_id,
+                run_id: item.run_id,
+                source_type: ev.source_type || 'official_document',
+                source_ref: ev.source_ref || ev.url || 'internal://unknown',
+                title: ev.title || 'Evidence item',
+                excerpt: ev.excerpt || ev.content || '',
+              });
+            } catch {}
+          }
+        }
 
         let summary =
           findings.summary ||
@@ -417,6 +471,16 @@ export class ResearchWorkerPool {
         });
 
         submittedOutcome = outcome;
+        this.onTaskTransition?.({
+          run_id: item.run_id,
+          task_id: item.task_id,
+          attempt_id: item.attempt_id,
+          role: item.role,
+          from: 'running',
+          to: status,
+          payload: { summary, resultId },
+        });
+        this.onOutcome?.(outcome);
         return { ok: true, submissionId: resultId };
       }, submitContext);
 
@@ -537,6 +601,17 @@ export class ResearchWorkerPool {
         },
       });
 
+      this.onTaskTransition?.({
+        run_id: item.run_id,
+        task_id: item.task_id,
+        attempt_id: item.attempt_id,
+        role: item.role,
+        from: 'running',
+        to: 'partial',
+        payload: { summary: outcome.summary },
+      });
+      this.onOutcome?.(outcome);
+
       return outcome;
     } catch (err: any) {
       if (submittedOutcome) {
@@ -624,6 +699,17 @@ export class ResearchWorkerPool {
           payload: { outcome },
         },
       });
+
+      this.onTaskTransition?.({
+        run_id: item.run_id,
+        task_id: item.task_id,
+        attempt_id: item.attempt_id,
+        role: item.role,
+        from: 'running',
+        to: status,
+        payload: { summary: message, error: outcome.error },
+      });
+      this.onOutcome?.(outcome);
 
       return outcome;
     }
