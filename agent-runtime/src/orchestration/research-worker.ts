@@ -302,6 +302,26 @@ export class ResearchWorkerPool {
     return false;
   }
 
+  public cancelRun(runId: string, reason?: string): number {
+    let count = 0;
+    // 1. Cancel active executions for this run
+    for (const [taskId, active] of this.activeExecutions.entries()) {
+      if (active.item.run_id === runId) {
+        if (this.cancelTask(taskId, reason)) {
+          count++;
+        }
+      }
+    }
+    // 2. Cancel queued items for this run
+    const inQueue = this.queue.filter((q) => q.run_id === runId);
+    for (const item of inQueue) {
+      if (this.cancelTask(item.task_id, reason)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
   public getActiveCount(): number {
     return this.activeExecutions.size;
   }

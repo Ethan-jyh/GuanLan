@@ -509,6 +509,9 @@ export class ResearchCoordinator {
   }
 
   public cancelRun(run_id: string, reason?: string): void {
+    if (this.components.workerPool) {
+      this.components.workerPool.cancelRun(run_id, reason);
+    }
     this.runRepo.updateRunStatus(run_id, RunStatus.Cancelled);
     if (this.eventStore) {
       this.eventStore.publishEvent(run_id, 'run_cancelled', { reason });

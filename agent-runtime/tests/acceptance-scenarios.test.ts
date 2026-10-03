@@ -267,6 +267,7 @@ describe('Subagents-as-Tools: 14 Acceptance Scenarios (Section 11)', () => {
     // Confirm that the failure of feedback did NOT abort or cancel peer tasks
     assert.equal(taskAuth?.status, TaskStatus.Succeeded);
     assert.equal(taskEvo?.status, TaskStatus.Succeeded);
+    assert.equal(outcomesReceived.length, 3);
   });
 
   // --------------------------------------------------------------------------
@@ -428,6 +429,8 @@ describe('Subagents-as-Tools: 14 Acceptance Scenarios (Section 11)', () => {
 
     assert.equal(task1?.status, TaskStatus.Cancelled);
     assert.equal(task2?.status, TaskStatus.Succeeded);
+    assert.equal(task1?.budget_allocated, 6);
+    assert.equal(task2?.budget_allocated, 8);
 
     // Verify task_results contains separate outcomes
     const results = resultRepo.listResultsByRun(runId);
@@ -676,10 +679,8 @@ describe('Subagents-as-Tools: 14 Acceptance Scenarios (Section 11)', () => {
       })
     );
 
-    // Cancel entire run
+    // Cancel entire run via coordinator - workerPool cascade-cancels in-flight tasks
     coordinator2.cancelRun(runId2, 'Emergency user stop');
-    workerPool2.cancelTask(r1.task_id, 'Run cancelled');
-    workerPool2.cancelTask(r2.task_id, 'Run cancelled');
 
     await workerPool2.waitForAll();
 
