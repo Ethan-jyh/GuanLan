@@ -8,7 +8,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-22.x%20LTS-339933?style=flat-square&logo=nodedotjs)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python)](https://python.org/)
-[![Runtime Tests](https://img.shields.io/badge/TS%20Tests-91%20Passed-brightgreen?style=flat-square)](./agent-runtime/)
+[![Runtime Tests](https://img.shields.io/badge/TS%20Tests-251%20Passed-brightgreen?style=flat-square)](./agent-runtime/)
 [![Python Tests](https://img.shields.io/badge/Python%20Tests-15%20Passed-brightgreen?style=flat-square)](./tests/)
 [![License](https://img.shields.io/badge/License-GPL--2.0-blue.svg?style=flat-square)](LICENSE)
 
@@ -25,19 +25,22 @@ The system addresses information silos and LLM sycophancy. Given an analysis top
 ### 🚀 Technical Highlights
 
 1. **Modern TypeScript Collaborative Runtime (`agent-runtime/`)**:
-   - The core orchestration engine is built on TypeScript / Node.js, providing low-latency, strictly-typed, and highly resilient orchestration for DAG planning, state machines, evidence tracking, IR compilation, and report rendering.
+   - The core orchestration engine is built on TypeScript / Node.js, providing low-latency, strictly-typed, and highly resilient orchestration for autonomous planning, independent worker pools, serialized debounced inboxes, dual-tier budget gates, evidence tracking, IR compilation, and report rendering.
    - **Native High-Performance Core**: Powered by Node.js 22 native `node:sqlite` (WAL mode), Zod domain contracts, and SHA-256 deduplicated evidence pools.
-   - **Strict Evidence Verification & Budget Gate**: Every claim is bidirectionally bound to evidence fingerprints; unverified statements are rejected. Atomic quotas ensure report generation budgets are strictly preserved.
-   - **3-Role Deliberation Barrier & Mandatory Convergence**: Parallel investigations by FactAgent, EvolutionAgent, and FeedbackAgent. Mandatory convergence at round 3 permanently prevents infinite deliberation loops.
-   - **Comprehensive Automated Test Suite**: 91 unit and end-to-end tests covering evidence tracking, convergence barriers, budget protection, crash recovery, and document rendering.
+   - **Subagents as Independent Tools & Async Workers**: Synchronous round barriers are replaced by modular subagent research tools (`research_authority`, `research_evolution`, `research_feedback`). Tools return instant `accepted` receipts and execute asynchronously in an isolated `ResearchWorkerPool` (max concurrency 3).
+   - **Fault Isolation & Outcome Immutability**: Single-task failures, timeouts, or cancellations never cascade to peer tasks. Succeeded results are saved immutably to `task_results` with version uniqueness protection.
+   - **Pi Native Call ID & Dual-Tier Budget Gate**: Budget reservations track distinct `call_id`s, enforcing both task-level limits and global Run budgets while preserving report generation reserves.
+   - **Serialized Debounced HOST Inbox**: A 500ms sliding window aggregates fast-arriving research findings. A run-level mutex strictly serializes HOST turns (max 1 active turn, capped at 12 decision turns), eliminating busy loops.
+   - **Substantive Revision Cap ($\le 3$ Generations) & 6-Criteria Release Gate**: Follow-up investigations on the same topic are strictly capped at 3 generations (technical retries track attempt counts). Reports are released only when `ReleaseGate` verifies 6 criteria against an immutable material snapshot, supporting restricted delivery with recorded gaps.
+   - **Comprehensive Automated Test Suite**: **251** automated unit and end-to-end tests across 112 suites, covering all 14 system-level acceptance scenarios (concurrency isolation, single-role execution, timeout late-drop, cascade cancellation, idempotency, physical disk SQLite recovery, etc.).
 
 2. **Cross-Modal Agent Matrix**:
    - Decoupled into authoritative narrative tracking, social media cross-modal perception, and sentiment mining.
    - Covers mainstream social media platforms (Weibo, Xiaohongshu, Douyin/TikTok, Kuaishou), handling text, images, short videos, and structured cards.
 
-3. **Host-Driven Deliberation & Targeted Follow-Up**:
-   - Led by a Host Analyst model with synchronous barriers.
-   - When evidence gaps are identified, follow-up directives are dispatched *only* to the relevant agent, while findings from other agents are carried forward automatically.
+3. **Host-Driven Inbox Review & Autonomous Tool Dispatch**:
+   - Orchestrated by a Host Analyst model with serialized inbox dispatch.
+   - The HOST autonomously dispatches research tools or delegates batched research. As new findings arrive via the inbox, the HOST performs staged reviews and issues targeted follow-up revisions (capped at 3 generations), avoiding sycophancy, runaway loops, and idle LLM spinning.
 
 4. **Edge-Cloud Synergy & Efficient Fine-Tuning**:
    - "Local lightweight tagging + Cloud LLM high-level reasoning" architecture.
@@ -61,11 +64,11 @@ The system addresses information silos and LLM sycophancy. Given an analysis top
 
 | Phase | Core Action | Components | Mechanisms & Constraints |
 |---|---|---|---|
-| **1. Ingestion & DAG Planning** | Parse topic intent and construct task DAG | HostAgent + TaskPlanner | Acyclic dependency verification, initial budget allocation, Run isolation |
-| **2. 3-Role Parallel Research** | Subagents execute specialized investigations | Fact / Evolution / Feedback | Max 3 concurrency; claims strictly bound to evidence; atomic budget reservation |
-| **3. Barrier & Claim Verification** | Synchronize outputs and verify evidence claims | Coordinator + VerifierComponent | Strict evidence validation; supports multi-dimensional coexistence of facts & sentiment |
-| **4. Host Review & Follow-Up** | Host reviews findings and issues targeted tasks | HostAgent + ReviewManager | **Targeted dispatch**: Follow-ups sent only to agents with gaps; others Carry-Forward; **Mandatory convergence at Round 3** |
-| **5. Controlled IR Compilation** | Aggregate verified findings and assemble report | ReportAgent + IRValidator + Renderers | **FinalChecker gate**: Rejects unsupported claims and generic slogans; Document IR syntax check; native export to DOCX/HTML/MD/PDF |
+| **1. Ingestion & Autonomous Planning** | Ingest topic, initialize run, and trigger initial HOST turn | HostAgent + TaskPlanner | Run isolation, `runExecutionContext` async context propagation, autonomous tool planning |
+| **2. Independent Tool Invocation & Worker Concurrency** | Call subagent tools; background workers investigate concurrently | WorkerPool + ResearchTools | Immediate `accepted` receipt; max concurrency 3; isolated worker instances without cascading failures; atomic budget reservations |
+| **3. Result Persistence & Debounced Inbox Notification** | Atomically persist findings to `task_results` & outbox; inbox notifies HOST | OutboxRepo + HostInboxDispatcher | 500ms debouncing window aggregates results; mutex ensures strictly one active HOST turn, zero event loss |
+| **4. Staged Review & Capped Revisions** | HOST reviews incremental findings: accept, follow-up, wait, or request release | HostAgent + ReviewManager | **Generation limit**: Substantive revisions capped at $\le 3$; technical retries track attempts; 12-turn decision cap |
+| **5. Snapshot Freezing & 6-Criteria Release Gate** | ReleaseGate validates 6 criteria; freezes immutable material snapshot for report generation | ReleaseGate + ReportAgent + Renderers | **6 criteria gate**: Required outcomes/gap justifications, uncalled role explanations, no active events, claim-to-evidence resolution, snapshot freshness, restricted delivery flags; ReportAgent compiles frozen snapshot |
 
 ---
 
@@ -74,14 +77,15 @@ The system addresses information silos and LLM sycophancy. Given an analysis top
 ```
 GuanLan/
 ├── agent-runtime/                          # 🚀 TypeScript / Node.js multi-agent core orchestration runtime
-│   ├── src/contracts/                      # Domain contracts (Zod schema validation)
-│   ├── src/storage/                        # SQLite storage, evidence pool, event log, budget ledger
-│   ├── src/orchestration/                  # DAG planner, scheduler, submissions, reviews, recovery
-│   ├── src/tools/                          # Research tools (web search, scraper, social query, time series)
+│   ├── src/contracts/                      # Domain contracts (job params, receipts, outcomes, events, Zod validation)
+│   ├── src/storage/                        # SQLite 001/002 migrations, attempts/results/outbox/inbox repos, evidence pool, budget ledger
+│   ├── src/orchestration/                  # WorkerPool async pool, HostInbox debounced dispatcher, ReleaseGate, scheduler & recovery
+│   ├── src/tools/                          # Independent research tools (research_authority/evolution/feedback, delegate_research, submit_findings)
 │   ├── src/agents/                         # Pi Agents (HostAgent, ResearcherAgent, ReportAgent, Verifier)
-│   ├── src/reporting/                      # Report synthesis, quality gate, IR validator, multi-format renderers
-│   ├── src/api/                            # RESTful API, SSE event stream, web dashboard
-│   └── tests/                              # 91 automated test cases and benchmarks
+│   ├── src/runtime/                        # Pi native callId adapter, dual-tier budget gate & TaskCancellationController
+│   ├── src/reporting/                      # Immutable material snapshot aggregation, IR validator, multi-format renderers (DOCX/HTML/MD/PDF)
+│   ├── src/api/                            # RESTful API (incremental outbox polling & task cancel), real-time SSE stream, web dashboard
+│   └── tests/                              # 251 automated core tests (covering 14 system isolation & recovery acceptance scenarios, 112 suites)
 ├── MindSpider/                             # Social media crawling cluster
 │   ├── main.py                             # Crawler CLI entry point
 │   ├── config.py                           # Crawler configuration
@@ -131,7 +135,7 @@ cd agent-runtime
 npm install
 npm run build
 
-# 3. Run all 91 automated tests
+# 3. Run all 251 automated tests (112 test suites, 14 acceptance scenarios)
 npm test
 
 # 4. Launch runtime server & web dashboard
@@ -262,7 +266,8 @@ Contributions are welcome! Please review [CONTRIBUTING.md](./CONTRIBUTING.md) be
 
 ## 🗺️ Roadmap
 
-- [x] **Modern TypeScript / Node.js High-Concurrency Engine** (91 automated tests passing)
+- [x] **Modern TypeScript / Node.js High-Concurrency Engine** (Baseline unit test suite passed)
+- [x] **Subagents as Independent Tools & Async Execution Engine** (14 system acceptance scenarios, 251 tests passing)
 - [x] **Controlled Document IR Assembly & Pure JS Export** (DOCX / Markdown / HTML / PDF)
 - [ ] **Cross-Modal Image/Video-to-Text Deep Synthesis**: Deconstruct short-form videos and unify multimodal tables.
 - [ ] **On-Device Model Distillation**: Distill deliberation reasoning patterns into compact offline models.

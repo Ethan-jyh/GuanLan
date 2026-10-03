@@ -9,7 +9,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-22.x%20LTS-339933?style=flat-square&logo=nodedotjs)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python)](https://python.org/)
-[![Runtime Tests](https://img.shields.io/badge/TS%20Tests-91%20Passed-brightgreen?style=flat-square)](./agent-runtime/)
+[![Runtime Tests](https://img.shields.io/badge/TS%20Tests-251%20Passed-brightgreen?style=flat-square)](./agent-runtime/)
 [![Python Tests](https://img.shields.io/badge/Python%20Tests-15%20Passed-brightgreen?style=flat-square)](./tests/)
 [![License](https://img.shields.io/badge/License-GPL--2.0-blue.svg?style=flat-square)](LICENSE)
 
@@ -26,19 +26,22 @@
 ### 🚀 核心技术亮点
 
 1. **现代 TypeScript 协同研判引擎 (`agent-runtime/`)**：
-   - 核心研判中枢基于 TypeScript / Node.js 架构，承载任务 DAG 规划、会商编排、状态机、严格证据溯源、IR 编译与决策专报装订，提供低延迟、强类型与高可靠的研判调度服务。
+   - 核心研判中枢基于 TypeScript / Node.js 架构，承载自主任务规划、独立研究 Worker 池、串行防抖收件箱、双层预算门禁、严格证据溯源、IR 编译与决策专报装订，提供低延迟、强类型与高可靠的研判调度服务。
    - **原生高效底座**：基于 Node.js 22 原生 `node:sqlite`（WAL 模式）、Zod 强类型契约校验与 SHA-256 去重证据池。
-   - **严格证据闭环与预算管理**：每条核心论点必须双向绑定证据指纹，未验证事实无法入库；原子配额扣减确保终稿写作预算底线。
-   - **3 角色会商屏障与强制收敛**：事实核查、态势演化、舆情反馈 3 智能体并行调研；第 3 轮会商强制收敛，彻底杜绝无限循环。
-   - **全量自动化测试套件**：内建 91 项自动化核心测试，全面覆盖证据闭环、会商收敛、预算防护、崩溃恢复与专报导出。
+   - **子 Agent 工具化与独立异步执行**：全面废除阻塞式同步屏障，将权威核查（`research_authority`）、态势演化（`research_evolution`）、舆情反馈（`research_feedback`）解耦为独立研究工具；后台 Worker 池异步并发执行，工具调用立即返回 `accepted` 任务回执。
+   - **物理级故障隔离与终态不可变性**：单任务失败、超时或取消绝不级联中断同伴任务；成功结果持久化至 `task_results` 并具备版本唯一性保护，防止错误覆写。
+   - **Pi 原生调用 ID 与双层预算门禁**：基于工具调用 `call_id` 进行独立额度预留，执行“单任务配额 + Run 全局预算”双层校验，硬性保留专报写作底线预算。
+   - **HOST 串行防抖收件箱调度**：以 500ms 窗口智能聚合高频成果通知，全局互斥锁保障同一 Run 永远只有 1 个活跃 HOST 决策轮次，配备 12 轮上限熔断与空闲自动推进机制。
+   - **修订上限（$\le 3$ 代）与 6 标准放行门禁**：实质性补查严格受限于 3 代，技术重试使用 attempt 计数；专报放行由 `ReleaseGate` 严格核验 6 项标准并冻结不可变材料快照，支持受限交付。
+   - **全量自动化测试套件**：内建 **251 项** 自动化核心测试（112 个测试套件），全面覆盖 14 大系统级验收场景（并发异构结果隔离、单角色独立执行、超时晚到丢弃、级联取消、幂等去重、物理文件 SQLite 崩溃恢复等）。
 
 2. **全媒体跨模态 Agent 矩阵架构**：
    - 权威叙事追踪、社媒跨模态感知与私有库情绪挖掘三层解耦的智能体矩阵。
    - 覆盖微博、小红书、抖音、快手等主流社媒图文、短视频及结构化卡片，实现全域态势的网格化感知。
 
-3. **主控驱动的会商博弈与定向追查机制**：
-   - 采用首席分析师 Host 模型统筹与同步屏障机制。
-   - 评审发现证据不足时，仅对特定智能体下发定向追查任务，其余角色成果自动 Carry-Forward，大幅降低幻觉与无效开销。
+3. **主控驱动的收件箱审查与自主工具调度**：
+   - 采用首席分析师 Host 模型统筹与串行收件箱机制。
+   - HOST 自主按需派发研究工具或通过 `delegate_research` 组合派发；针对收件箱中的新成果进行阶段审查，仅对必要信息缺口发起实质补查（上限 3 代），避免无效开销与大模型空转。
 
 4. **端云分级协同与轻量微调降本**：
    - 构建“本地轻量模型打标 + 云端大模型高层研判”架构；基于 LoRA 微调本地 BERT-Chinese 与小参数 Qwen 模型，完成多维度情绪极化分类，测试集 F1-score 达 91.8%，显著降低推理调用成本。
@@ -60,11 +63,11 @@
 
 | 阶段 | 核心动作 | 参与组件 | 核心机制与输出约束 |
 |---|---|---|---|
-| **1. 议题接收与 DAG 规划** | 接收用户研判议题，拆解研判意图并生成任务 DAG | HostAgent + TaskPlanner | 有向无环图依赖校验，初始角色预算分配，建立 Run 隔离域 |
-| **2. 三角色并行深入调研** | 3 智能体按职责并发调用工具链，提取核心事实 | Fact / Evolution / Feedback | 最大 3 并发调度；事实强绑定证据录入 EvidenceStore；原子预扣预算 |
-| **3. 会商屏障与事实核验** | 等待三方成果齐备，触发同步屏障与事实核验 | Coordinator + VerifierComponent | 严格核验 Claim 关联证据；支持官方事实与大众情绪多维共存评估 |
-| **4. Host 评审与定向追查** | Host 综合各方研判结果，决定通过或定向追加调研 | HostAgent + ReviewManager | **定向分派**：仅对信息缺口角色下发补充指令，其余角色 Carry-Forward；**第 3 轮强制收敛** |
-| **5. 受控编译与专报装订** | 聚合终审证据集，撰写长篇专报并装订多格式交付 | ReportAgent + IRValidator + Renderers | **FinalChecker 门禁**：拦截泛化空话套话与悬空事实；Document IR 语法校验；原生导出 DOCX/HTML/MD/PDF |
+| **1. 议题接收与自主规划** | 接收用户研判议题，保存 Run 并启动初始 HOST 决策 | HostAgent + TaskPlanner | 建立 Run 隔离域，`runExecutionContext` 异步上下文绑定，HOST 按需自主规划任务 |
+| **2. 独立工具调用与 Worker 并发** | 调用研究工具派发任务，后台独立 Worker 并发调研 | WorkerPool + ResearchTools | 返回即时 `accepted` 回执；最大并发 3；单任务隔离不级联失败；原子预算预留 |
+| **3. 成果落库与防抖收件箱通知** | 成果原子写入 `task_results` 与 Outbox，收件箱消费唤起 HOST | OutboxRepo + HostInboxDispatcher | 500ms 窗口防抖合并多任务成果；单活 HOST 互斥锁确保决策串行有序，零事件丢失 |
+| **4. 阶段审查与受限补查** | Host 综合新变化决策：通过、追查、等待或申请放行 | HostAgent + ReviewManager | **代数硬约束**：实质补查严格限制在 $\le 3$ 代；attempt 记录技术重试；12 轮决策上限熔断 |
+| **5. 快照冻结与 6 标准放行门禁** | ReleaseGate 严格核验 6 准则，冻结不可变材料快照装订专报 | ReleaseGate + ReportAgent + Renderers | **6 标准门禁**：必要成果/缺口豁免、未调角色不适用说明、无在途事件、主张证据可解析、快照未失效、受限交付标记；ReportAgent 绑定冻结快照装订导出 |
 
 ---
 
@@ -73,14 +76,15 @@
 ```
 GuanLan/
 ├── agent-runtime/                          # 🚀 TypeScript / Node.js 多智能体协同研判核心运行时
-│   ├── src/contracts/                      # 统一领域契约 (Zod schema 运行时校验)
-│   ├── src/storage/                        # 原生 SQLite 数据层、证据池、事件流与预算账本
-│   ├── src/orchestration/                  # 任务规划、并发调度、成果提交、会商评审与恢复管理
-│   ├── src/tools/                          # 核心研究工具集 (联网搜索、正文抓取、社媒参数化查询、时间序列)
+│   ├── src/contracts/                      # 统一领域契约 (研究作业、回执、成果、事件契约与 Zod 校验)
+│   ├── src/storage/                        # SQLite 001/002 迁移、attempts/results/outbox/inbox 仓库、证据池与预算账本
+│   ├── src/orchestration/                  # WorkerPool 异步工作池、HostInbox 串行防抖收件箱、ReleaseGate 放行门禁、调度与恢复
+│   ├── src/tools/                          # 独立研究工具 (research_authority/evolution/feedback、delegate_research、submit_findings)
 │   ├── src/agents/                         # Pi Agent 核心 (HostAgent, ResearcherAgent, ReportAgent, Verifier)
-│   ├── src/reporting/                      # 专报研判综合、终稿质量门禁、IR 校验与多格式导出 (DOCX/HTML/MD/PDF)
-│   ├── src/api/                            # RESTful API、SSE 实时事件流与 Web 交互看板
-│   └── tests/                              # 91 项自动化单元测试与端到端核心基准案例
+│   ├── src/runtime/                        # Pi 原生 callId 传递适配器、双层预算门禁与 TaskCancellationController
+│   ├── src/reporting/                      # 不可变材料快照聚合、专报研判综合、Document IR 校验与多格式导出 (DOCX/HTML/MD/PDF)
+│   ├── src/api/                            # RESTful API (含增量 outbox 拉取与单任务取消)、SSE 实时单任务流转事件流与 Web 看板
+│   └── tests/                              # 251 项自动化核心测试 (覆盖 14 大系统级隔离与故障恢复验收场景，112 suites)
 ├── MindSpider/                             # 社交媒体多源数据采集与爬虫集群
 │   ├── main.py                             # 爬虫主程序入口
 │   ├── config.py                           # 爬虫配置文件
@@ -130,7 +134,7 @@ cd agent-runtime
 npm install
 npm run build
 
-# 3. 运行全量 91 项自动化核心测试
+# 3. 运行全量 251 项自动化核心测试 (112 个测试套件，覆盖 14 大系统级验收场景)
 npm test
 
 # 4. 启动研判服务与 Web 交互看板
@@ -269,7 +273,8 @@ python predict.py --text "The overall response is remarkably positive." --lang "
 
 ## 🗺️ 后续演进路线
 
-- [x] **现代 TypeScript / Node.js 高并发调度引擎**（已完成：91 项自动化核心测试全绿通过）
+- [x] **现代 TypeScript / Node.js 高并发调度引擎**（已完成：全量单元基线测试通过）
+- [x] **子 Agent 工具化与独立异步执行引擎**（已完成：14 大系统级验收场景、251 项测试全绿通过）
 - [x] **受控编译级 Document IR 装订与纯 JS 导出**（已完成：DOCX / Markdown / HTML / PDF）
 - [ ] **多模态图生文/图生表深度融合研判**：支持短视频逐帧解构与多模态图表统一对齐
 - [ ] **端侧轻量化模型蒸馏**：将研判推理策略蒸馏至小尺寸模型，实现全离线私密研判
